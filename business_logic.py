@@ -1,6 +1,7 @@
 from __future__ import annotations
 from collections import defaultdict
 import weakref
+from datetime import date, timezone, timedelta, datetime
 
 from gs_module import GameSheet
 
@@ -135,6 +136,8 @@ class Game(CacheMixin):
 
         self._sell_factor = 0
         self._buy_factor = 0
+        self._timezone = timezone(
+            timedelta(hours=self.game_data.hours_delta))
 
     def change_name(new_name: str) -> None:
         pass
@@ -175,8 +178,9 @@ class Game(CacheMixin):
     def delete_share(self, share_id: int) -> None:
         self.game_data.delete_share(share_id)
 
-    def get_today(self):
-        pass
+    def get_today(self) -> date:
+        today = datetime.now(self._timezone).date()
+        return today
 
     def buy_deal(
             self,
