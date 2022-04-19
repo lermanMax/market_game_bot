@@ -68,13 +68,13 @@ class GameSheet():
             self,
             last_name: str,
             first_name: str,
-            nikname: str,
+            nickname: str,
             tg_username: str) -> None:
         worksheet = self.get_worksheet(GAMEUSERS_WS)
         values_list = [
             last_name,
             first_name,
-            nikname,
+            nickname,
             tg_username
         ]
         worksheet.append_table(
@@ -136,12 +136,12 @@ class GameSheet():
     def add_portfolio(
             self,
             date: date,
-            nikname: str,
+            nickname: str,
             size: float):
         worksheet = self.get_worksheet(PRICES_WS)
         values_list = [
             date,
-            nikname,
+            nickname,
             size
         ]
         worksheet.append_table(

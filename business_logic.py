@@ -98,19 +98,19 @@ class GameUser(TgUser):
             new_first_name=new_first_name
         )
 
-    def is_nikname_unique(self, nikname: str) -> bool:
-        result = self.gameuser_data.is_nikname_unique(
-            nikname=nikname
+    def is_nickname_unique(self, nickname: str) -> bool:
+        result = self.gameuser_data.is_nickname_unique(
+            nickname=nickname
         )
         return result
 
-    def change_nikname(self, new_nikname: str) -> None:
-        self.gameuser_data.change_nikname(
-            new_nikname=new_nikname
+    def change_nickname(self, new_nickname: str) -> None:
+        self.gameuser_data.change_nickname(
+            new_nickname=new_nickname
         )
 
-    def get_nikname(self) -> str:
-        return self.gameuser_data.get_nikname()
+    def get_nickname(self) -> str:
+        return self.gameuser_data.get_nickname()
 
     def get_list_of_shares(self, company_id: int = None) -> list:
         id_list = self.gameuser_data.get_id_list_of_shares(
@@ -351,7 +351,7 @@ class Game(CacheMixin):
         for gameuser in gamers:
             self.game_sheet.add_portfolio(
                 date=self.get_today(),
-                nikname=gameuser.get_nikname(),
+                nickname=gameuser.get_nickname(),
                 patfolio_size=gameuser.get_portfolio_size()
             )
 
