@@ -64,6 +64,26 @@ class GameSheet():
 
         return result
 
+    def get_date_and_bool_from_timetable(self) -> tuple:
+        """Получить дату и значение переменной is_market_open.
+
+        Returns:
+            tuple: (date: str, is_market_open: str)
+        """
+        worksheet = self.get_worksheet(TIMETABLE_WS)
+
+        date_name_cell = worksheet.find('today_date')[0]
+        date_address = date_name_cell.address + (0, 1)
+        date_cell = worksheet.cell(date_address)
+        date_now = date(date_cell.value)
+
+        bool_name_cell = worksheet.find('is_market_open')[0]
+        bool_address = bool_name_cell.address + (0, 1)
+        bool_cell = worksheet.cell(bool_address)
+        bool_ = bool(int(bool_cell.value))
+
+        return (date_now, bool_)
+
     def add_gameuser(
             self,
             last_name: str,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from collections import defaultdict
 import weakref
-from datetime import date, timezone, timedelta, datetime
+from datetime import date, timezone, timedelta, datetime, time
 
 from gs_module import GameSheet
 
@@ -131,13 +131,21 @@ class Game(CacheMixin):
         super(Game, self).__init__(key=game_id)
 
         self.game_data = 0
-        self.gs_link = 0
+        self.gs_link = self.game_data.get_gs_link()
         self.game_sheet = GameSheet(self.gs_link)
 
-        self._sell_factor = 0
-        self._buy_factor = 0
+        self._sell_factor = self.game_data.get_sell_factor()
+        self._buy_factor = self.game_data.get_buy_factor()
         self._timezone = timezone(
             timedelta(hours=self.game_data.hours_delta))
+
+    def get_today(self) -> date:
+        today = datetime.now(self._timezone).date()
+        return today
+
+    def get_time_now(self) -> time:
+        time_now = datetime.now(self._timezone).time()
+        return time_now
 
     def change_name(new_name: str) -> None:
         pass
@@ -148,8 +156,18 @@ class Game(CacheMixin):
     def is_market_open_now(self) -> bool:
         return self.game_data.get_is_market_open()
 
+    def open_market(self):
+        self.game_data.change_is_market_open(True)
+
+    def close_market(self):
+        self.game_data.change_is_market_open(False)
+
     def update_is_market_open(self) -> None:
-        pass
+        date_now, is_open = self.game_sheet.get_date_and_bool_from_timetable()
+        if (date_now == self.get_today()) and is_open:
+            self.open_market()
+        else:
+            self.close_market()
 
     def add_gameuser(self, tg_id: int) -> None:
         self.game_data.add_gameuser(tg_id)
@@ -167,6 +185,10 @@ class Game(CacheMixin):
         self.game_data.load_base_value(
             base_value_dict=base_value_dict
         )
+        self._sell_factor = self.game_data.get_sell_factor()
+        self._buy_factor = self.game_data.get_buy_factor()
+        self._timezone = timezone(
+            timedelta(hours=self.game_data.hours_delta))
 
     def create_share(self, company_id: int, owner_gameuser_id: int) -> Share:
         share_id = self.game_data.creat_share(
@@ -177,10 +199,6 @@ class Game(CacheMixin):
 
     def delete_share(self, share_id: int) -> None:
         self.game_data.delete_share(share_id)
-
-    def get_today(self) -> date:
-        today = datetime.now(self._timezone).date()
-        return today
 
     def buy_deal(
             self,
