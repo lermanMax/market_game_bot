@@ -586,15 +586,16 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
             insert_values = (date_deal, type_deal, company_id)
-            select_script = '''SELECT transaction_id FROM transactions
+            select_script = '''SELECT transaction_id, date_deal, subject_deal, type_deal, company_id, number_of_shares
+                                FROM transactions
                                 WHERE date_deal = %s
                                 AND type_deal = %s
                                 AND company_id = %s;'''
             cursor.execute(select_script, (insert_values,))
-            id_list = cursor.fetchall()
+            transaction_data = cursor.fetchall()
         connection.commit()
         connection.close()
-        return id_list
+        return transaction_data
 
     # +
     @staticmethod
