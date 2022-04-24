@@ -46,7 +46,6 @@ class MarketBotData:
         return active_gameuser
 
 
-
 # +
 class TgUserData:
     def __init__(self, tg_id: int):
@@ -580,7 +579,7 @@ class GameData:
         connection.commit()
         connection.close()
 
-    # ?? (список словарей где каждый словарь - транзакция)
+    # ?
     @staticmethod
     def get_transactions(date_deal, type_deal, company_id) -> list:
         connection = psycopg2.connect(**db_config)
@@ -592,10 +591,15 @@ class GameData:
                                 AND type_deal = %s
                                 AND company_id = %s;'''
             cursor.execute(select_script, (insert_values,))
-            transaction_data = cursor.fetchall()
+            transaction_data = cursor.fetchall()  # -> list of tuples
         connection.commit()
         connection.close()
-        return transaction_data
+        cols_names = ('transaction_id', 'date_deal', 'subject_deal', 'type_deal', 'company_id', 'number_of_shares')
+        transactions_list_of_dicts = []
+        for row in transaction_data:
+            row_data = dict(zip(cols_names, row))
+            transactions_list_of_dicts.append(row_data)
+        return transactions_list_of_dicts
 
     # +
     @staticmethod
