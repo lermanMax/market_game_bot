@@ -110,11 +110,12 @@ class GameUserData:
                     game_user.last_name,
                     game_user.nickname,
                     game_user.game,
-                    game_user.cash, 
+                    game_user.cash,
                     game_user.is_active
                 FROM game_user WHERE gameuser_id = %s;'''
             cursor.execute(select_script, (gameuser_id,))
-            tg_id, first_name, last_name, nickname, game, cash, is_active = cursor.fetchone()
+            tg_id, first_name, last_name, nickname, \
+                game, cash, is_active = cursor.fetchone()
         connection.commit()
         connection.close()
 
@@ -226,7 +227,7 @@ class GameUserData:
     # ?
     def get_id_list_of_shares(self, company_id: int) -> list:
         connection = psycopg2.connect(**db_config)
-        with connection.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+        with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
             select_script = '''SELECT share.share_id FROM share WHERE share.owner = %s AND share.company = %s;'''
             cursor.execute(select_script, (self.gameuser_id, company_id))
             id_list = cursor.fetchall()
@@ -250,7 +251,8 @@ class CompanyData:
                             company.effect,
                         FROM company WHERE company_id = %s;'''
             cursor.execute(select_script, (company_id,))
-            game, company_name, company_ticker, price, effect = cursor.fetchone()
+            game, company_name, company_ticker, \
+                price, effect = cursor.fetchone()
         connection.commit()
         connection.close()
 
@@ -318,9 +320,10 @@ class GameData:
                game.chart_link
             FROM game WHERE game_id = %s;'''
             cursor.execute(select_script, (game_id,))
-            game_key, game_name, gs_link, timezone, start_day, end_day, open_time, close_time, \
-            is_market_open, start_price, start_cash, max_percentage, sell_factor, buy_factor, \
-            admin_contact, chart_link = cursor.fetchone()
+            game_key, game_name, gs_link, timezone, start_day, end_day, \
+                open_time, close_time, is_market_open, start_price, \
+                start_cash, max_percentage, sell_factor, buy_factor, \
+                admin_contact, chart_link = cursor.fetchone()
         connection.commit()
         connection.close()
 
@@ -521,8 +524,10 @@ class GameData:
 
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
-            insert_values = (timezone, start_day, end_day, open_time, close_time, start_price, start_cash,
-                             max_percentage, sell_factor, buy_factor, admin_contact, chart_link, self.game_id)
+            insert_values = (
+                timezone, start_day, end_day, open_time, close_time,
+                start_price, start_cash, max_percentage, sell_factor,
+                buy_factor, admin_contact, chart_link, self.game_id)
             insert_script = '''
                 UPDATE game
                 SET timezone = %s,
@@ -572,7 +577,9 @@ class GameData:
                         company_id: int, number_of_shares: int) -> None:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
-            insert_values = (date_deal, subject_deal_id, type_deal, company_id, number_of_shares)
+            insert_values = (
+                date_deal, subject_deal_id, type_deal,
+                company_id, number_of_shares)
             insert_script = '''INSERT INTO transactions (date_deal, subject_deal, type_deal, company_id, number_of_shares)
                                 VALUES (%s, %s, %s, %s, %s);'''
             cursor.execute(insert_script, insert_values)
@@ -583,7 +590,7 @@ class GameData:
     @staticmethod
     def get_transactions(date_deal, type_deal, company_id) -> list:
         connection = psycopg2.connect(**db_config)
-        with connection.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+        with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
             insert_values = (date_deal, type_deal, company_id)
             select_script = '''SELECT transaction_id, date_deal, subject_deal, type_deal, company_id, number_of_shares
                                 FROM transactions
@@ -603,7 +610,8 @@ class GameData:
 
     # +
     @staticmethod
-    def add_company_history(company_id: int, date_entry: date, price: float) -> None:
+    def add_company_history(
+            company_id: int, date_entry: date, price: float) -> None:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (company_id, date_entry, price)
