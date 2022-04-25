@@ -18,7 +18,8 @@ class MarketBotData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (tg_id, tg_username)
-            insert_script = '''INSERT INTO tg_user (tg_id, username) VALUES (%s, %s);'''
+            insert_script = '''INSERT INTO tg_user (tg_id, username) VALUES (%s, %s)
+                            ON CONFLICT (tg_id) DO UPDATE SET username = Excluded.username;'''
             cursor.execute(insert_script, insert_values)
         connection.commit()
         connection.close()
@@ -28,7 +29,8 @@ class MarketBotData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (tg_id,)
-            insert_script = '''INSERT INTO superadmin (tg_id) VALUES (%s);'''
+            insert_script = '''INSERT INTO superadmin (tg_id) VALUES (%s)
+                            ON CONFLICT (tg_id) DO NOTHING;'''
             cursor.execute(insert_script, insert_values)
         connection.commit()
         connection.close()
@@ -44,6 +46,17 @@ class MarketBotData:
         connection.commit()
         connection.close()
         return active_gameuser
+
+    @staticmethod
+    def get_superadmin_ids() -> list:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            select_script = '''SELECT superadmin.tg_id FROM superadmin ;'''
+            cursor.execute(select_script)
+            id_list = cursor.fetchall()
+        connection.commit()
+        connection.close()
+        return [id_tuple[0] for id_tuple in id_list]
 
 
 # +
