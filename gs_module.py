@@ -47,11 +47,24 @@ class GameSheet():
     def __init__(self, gs_link: str):
         self.gs_link = gs_link
 
+    def get_title(self) -> str:
+        client = authorize(service_file=GSHEET_SERVICE_FILE)
+        sheet = client.open_by_url(self.gs_url)
+        return sheet.title
+
     def get_worksheet(self, ws_name: str) -> Worksheet:
         client = authorize(service_file=GSHEET_SERVICE_FILE)
         sheet = client.open_by_url(self.gs_url)
         worksheet = sheet.worksheet_by_title(ws_name)
         return worksheet
+
+    def add_game_key(self, game_key: str) -> None:
+        worksheet = self.get_worksheet(BASE_WS)
+
+        key_name_cell = worksheet.find('game_key')[0]
+        key_address = key_name_cell.address + (0, 1)
+        key_cell = worksheet.cell(key_address)
+        key_cell.set_value(game_key)
 
     def get_base_value(self) -> dict:
         worksheet = self.get_worksheet(BASE_WS)

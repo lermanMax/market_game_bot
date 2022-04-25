@@ -1,9 +1,12 @@
 from __future__ import annotations
 from collections import defaultdict
 import weakref
+import string
+import random
 from datetime import date, timezone, timedelta, datetime, time
 
 from gs_module import GameSheet
+from db_managing import GameData, MarketBotData, SuperAdminData
 
 
 class CacheMixin(object):
@@ -23,28 +26,21 @@ class CacheMixin(object):
 
 class MarketBot():
     def __init__(self):
-        self.market_bot_data = 0
-        pass
+        self.market_bot_data = MarketBotData()
 
-    def add_tg_user(self, tg_id: int, tg_username: int) -> TgUser:
-        # self.market_bot_data.add_tg_user(
-        #   tg_id=tg_id,
-        #   tg_username=tg_username)
+    def add_tg_user(self, tg_id: int, tg_username: int) -> None:
+        self.market_bot_data.add_tg_user(
+          tg_id=tg_id,
+          tg_username=tg_username
+        )
 
-        new_tg_user = TgUser.get(tg_id)
-        return new_tg_user
+    def add_superadmin(self, tg_id: int):
+        self.market_bot_data.add_superadmin(
+          tg_id=tg_id
+        )
 
-    def add_superadmin(self, tg_id: int) -> SuperAdmin:
-        # self.market_bot_data.add_superadmin(
-        #   tg_id=tg_id,
-        #   tg_username=tg_username)
-
-        new_superadmin = SuperAdmin.get(tg_id)
-        return new_superadmin
-
-    def get_list_of_superadmins_id(self) -> list:
-        # SuperAdminData.add(
-        pass
+    def get_superadmin_tg_ids(self) -> list:
+        return self.market_bot_data.get_superadmin_ids()
 
 
 class TgUser(CacheMixin):
@@ -62,19 +58,12 @@ class SuperAdmin(TgUser):
     def __init__(self, tg_id: int):
         super(SuperAdmin, self).__init__(tg_id=tg_id)
 
-        self.superadmin_data = 0
+        self.superadmin_data = SuperAdminData()
 
-    def create_new_game(self) -> int:
-        game_id = self.superadmin.create_new_game()
+    @staticmethod
+    def create_new_game() -> int:
+        game_id = SuperAdminData.create_new_game()
         return game_id
-
-    def add_name_to_game(self, game_id: int, game_name: str) -> None:
-        game = Game.get(game_id)
-        game.change_name(new_name=game_name)
-
-    def add_gslink_to_game(self, game_id: int, gs_link: str) -> None:
-        game = Game.get(game_id)
-        game.change_gslink(gs_link=gs_link)
 
 
 class GameUser(TgUser):
@@ -127,12 +116,19 @@ class GameUser(TgUser):
 
 
 class Game(CacheMixin):
+    @classmethod
+    def is_url_correct(gs_url: str) -> bool:
+        return GameSheet.is_url_correct(gs_url)
+
+    @classmethod
+    def key_generator(size=5, chars=string.ascii_uppercase + string.digits):
+        return ''.join(random.choice(chars) for _ in range(size))
+
     def __init__(self, game_id: int):
         super(Game, self).__init__(key=game_id)
 
-        self.game_data = 0
-        self.gs_link = self.game_data.get_gs_link()
-        self.game_sheet = GameSheet(self.gs_link)
+        self.game_data = GameData(game_id)
+        self.game_id = game_id
 
         self._sell_factor = self.game_data.get_sell_factor()
         self._buy_factor = self.game_data.get_buy_factor()
@@ -147,11 +143,22 @@ class Game(CacheMixin):
         time_now = datetime.now(self._timezone).time()
         return time_now
 
-    def change_name(new_name: str) -> None:
-        pass
+    def get_gs_link(self) -> str:
+        return self.game_data.get_gs_link()
 
-    def change_gslink(gs_link: str) -> None:
-        pass
+    def get_game_sheet(self) -> GameSheet:
+        return GameSheet(self.get_gs_link())
+
+    def change_name(self, new_name: str) -> None:
+        self.game_data.change_name(new_name)
+
+    def change_gslink(self, gs_link: str) -> None:
+        self.game_data.change_gslink(gs_link)
+        gamesheet = self.get_game_sheet()
+        self.change_name(new_name=gamesheet.get_title())
+        new_key = str(self.game_id).join(self.key_generator())
+        self.game_data.change_game_key(new_key)
+        gamesheet.add_game_key(new_key)
 
     def is_market_open_now(self) -> bool:
         return self.game_data.get_is_market_open()
