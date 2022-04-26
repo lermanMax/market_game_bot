@@ -42,7 +42,7 @@ class MarketBotData:
             select_script = '''SELECT game_user.gameuser_id FROM game_user WHERE game_user.tg_id = %s
                             AND game_user.is_active = TRUE;'''
             cursor.execute(select_script, (tg_id,))
-            active_gameuser = cursor.fetchone()
+            active_gameuser, = cursor.fetchone()
         connection.commit()
         connection.close()
         return active_gameuser
@@ -68,7 +68,7 @@ class TgUserData:
         with connection.cursor() as cursor:
             select_script = '''SELECT tg_user.username FROM tg_user WHERE tg_id = %s;'''
             cursor.execute(select_script, (tg_id,))
-            select_username = cursor.fetchone()
+            select_username, = cursor.fetchone()
         connection.commit()
         connection.close()
 
@@ -91,7 +91,7 @@ class SuperAdminData:
         with connection.cursor() as cursor:
             select_script = '''SELECT superadmin.tg_id FROM superadmin WHERE admin_id = %s;'''
             cursor.execute(select_script, (admin_id,))
-            select_tg_id = cursor.fetchone()
+            select_tg_id, = cursor.fetchone()
         connection.commit()
         connection.close()
 
@@ -103,7 +103,7 @@ class SuperAdminData:
         with connection.cursor() as cursor:
             insert_script = '''INSERT INTO game (game_name) VALUES (%s) RETURNING game_id;'''
             cursor.execute(insert_script, ('new game',))
-            select_game_id = cursor.fetchone()
+            select_game_id, = cursor.fetchone()
         connection.commit()
         connection.close()
         return select_game_id
@@ -210,13 +210,13 @@ class GameUserData:
         with connection.cursor() as cursor:
             try:
                 cursor.execute('''SELECT game_user.gameuser_id FROM game_user WHERE game_user.is_active = TRUE;''')
-                activated_id = cursor.fetchone()
+                activated_id, = cursor.fetchone()
                 cursor.execute('''UPDATE game_user SET game_user.is_active = FALSE WHERE gameuser_id = %s;''',
                                (activated_id,))
             except:
                 pass
             update_script = '''UPDATE game_user SET game_user.is_active = TRUE gameuser_id = %s;'''
-            cursor.execute(update_script, self.gameuser_id)
+            cursor.execute(update_script, (self.gameuser_id,))
         connection.commit()
         connection.close()
 
@@ -232,12 +232,12 @@ class GameUserData:
                WHERE nickname = %s);'''
 
             cursor.execute(select_script, (nickname,))
-            exists = cursor.fetchone()
+            exists, = cursor.fetchone()
         connection.commit()
         connection.close()
         return not exists
 
-    # ?
+    # +
     def get_id_list_of_shares(self, company_id: int) -> list:
         connection = psycopg2.connect(**db_config)
         with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
@@ -246,7 +246,7 @@ class GameUserData:
             id_list = cursor.fetchall()
         connection.commit()
         connection.close()
-        return id_list
+        return [id_tuple[0] for id_tuple in id_list]
 
 
 # +
@@ -485,7 +485,7 @@ class GameData:
         connection.commit()
         connection.close()
 
-    # ?
+    # +
     def get_gameuser_ids(self) -> list:
         connection = psycopg2.connect(**db_config)
         with connection.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
@@ -494,7 +494,7 @@ class GameData:
             id_list = cursor.fetchall()
         connection.commit()
         connection.close()
-        return id_list
+        return [id_tuple[0] for id_tuple in id_list]
 
     # +
     def add_company(self, company_name: str, company_ticker: str, price: int) -> int:
@@ -504,12 +504,12 @@ class GameData:
             insert_script = '''INSERT INTO company (company_name, company_ticker, price, game)
                                 VALUES (%s, %s, %s, %s) RETURNING company_id;'''
             cursor.execute(insert_script, insert_values)
-            select_company_id = cursor.fetchone()
+            select_company_id, = cursor.fetchone()
         connection.commit()
         connection.close()
         return select_company_id
 
-    # ?
+    # +
     def get_list_of_company_ids(self) -> list:
         connection = psycopg2.connect(**db_config)
         with connection.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
@@ -518,7 +518,7 @@ class GameData:
             id_list = cursor.fetchall()
         connection.commit()
         connection.close()
-        return id_list
+        return [id_tuple[0] for id_tuple in id_list]
 
     # +
     def fill_in_game_data(self, game_data_dict: dict) -> None:
@@ -569,7 +569,7 @@ class GameData:
             insert_values = (company_id, owner_gameuser_id)
             insert_script = '''INSERT INTO share (company, owner) VALUES (%s, %s) RETURNING share_id;'''
             cursor.execute(insert_script, insert_values)
-            select_share_id = cursor.fetchone()
+            select_share_id, = cursor.fetchone()
         connection.commit()
         connection.close()
         return select_share_id
@@ -593,8 +593,8 @@ class GameData:
             insert_values = (
                 date_deal, subject_deal_id, type_deal,
                 company_id, number_of_shares)
-            insert_script = '''INSERT INTO transactions (date_deal, subject_deal, type_deal, company_id, number_of_shares)
-                                VALUES (%s, %s, %s, %s, %s);'''
+            insert_script = '''INSERT INTO transactions (date_deal, subject_deal, type_deal, 
+                                company_id, number_of_shares) VALUES (%s, %s, %s, %s, %s);'''
             cursor.execute(insert_script, insert_values)
         connection.commit()
         connection.close()
@@ -610,7 +610,7 @@ class GameData:
                                 WHERE date_deal = %s
                                 AND type_deal = %s
                                 AND company_id = %s;'''
-            cursor.execute(select_script, (insert_values,))
+            cursor.execute(select_script, insert_values)
             transaction_data = cursor.fetchall()  # -> list of tuples
         connection.commit()
         connection.close()
