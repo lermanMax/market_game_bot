@@ -28,25 +28,25 @@ def run_continuously(interval=1):
     return cease_continuous_run
 
 
-# def background_job():
-#     print('Hello from the background thread')
+def background_job():
+    print('Hello from the background thread')
 
 
 # def job():
 #     print("I'm working...")
 
-
-# schedule.every(2).seconds.do(background_job)
-
 # # Start the background thread
-# stop_run_continuously = run_continuously(interval=20)
+# stop_run_continuously = run_continuously(interval=2)
 
 # # Do some other things...
+# schedule.every(2).seconds.do(background_job)
 # for i in range(10):
 #     time.sleep(1)
 #     print(i)
 # job_sc = schedule.every(3).seconds.do(job)
-# time.sleep(10)
+# for i in range(10):
+#     time.sleep(1)
+#     print(i)
 # schedule.cancel_job(job_sc)
 # for i in range(10):
 #     time.sleep(1)

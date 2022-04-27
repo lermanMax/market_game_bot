@@ -370,7 +370,7 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (game_key, self.game_id)
-            update_script = '''UPDATE company SET game_key = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game SET game_key = %s WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -384,7 +384,7 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (new_name, self.game_id)
-            update_script = '''UPDATE company SET game_name = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game SET game_name = %s WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -398,7 +398,7 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (gs_link, self.game_id)
-            update_script = '''UPDATE company SET gs_link = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game SET gs_link = %s WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -432,7 +432,7 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (True, self.game_id)
-            update_script = '''UPDATE company SET is_market_open = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game SET is_market_open = %s WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -442,7 +442,7 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (False, self.game_id)
-            update_script = '''UPDATE company SET is_market_open = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game SET is_market_open = %s WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()

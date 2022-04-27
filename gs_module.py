@@ -30,13 +30,13 @@ base_value_list = [
 
 
 class GameSheet():
-    @classmethod
+    @staticmethod
     def is_url_correct(gs_url: str) -> bool:
         try:
             client = authorize(service_file=GSHEET_SERVICE_FILE)
             sheet = client.open_by_url(gs_url)
             worksheet = sheet.worksheet_by_title(BASE_WS)
-            cell_list = worksheet.find('key')
+            cell_list = worksheet.find('key', matchEntireCell=True)
             if len(cell_list) == 1:
                 return True
             else:
@@ -49,28 +49,39 @@ class GameSheet():
 
     def get_title(self) -> str:
         client = authorize(service_file=GSHEET_SERVICE_FILE)
-        sheet = client.open_by_url(self.gs_url)
+        sheet = client.open_by_url(self.gs_link)
         return sheet.title
 
     def get_worksheet(self, ws_name: str) -> Worksheet:
         client = authorize(service_file=GSHEET_SERVICE_FILE)
-        sheet = client.open_by_url(self.gs_url)
+        sheet = client.open_by_url(self.gs_link)
         worksheet = sheet.worksheet_by_title(ws_name)
         return worksheet
 
     def add_game_key(self, game_key: str) -> None:
         worksheet = self.get_worksheet(BASE_WS)
 
-        key_name_cell = worksheet.find('game_key')[0]
+        key_name_cell = worksheet.find('game_key', matchEntireCell=True)[0]
         key_address = key_name_cell.address + (0, 1)
         key_cell = worksheet.cell(key_address)
         key_cell.set_value(game_key)
+
+    def is_base_values_ready(self) -> bool:
+        worksheet = self.get_worksheet(BASE_WS)
+
+        key_name_cell = worksheet.find('key', matchEntireCell=True)[0]
+        key_address = key_name_cell.address + (0, 1)
+        key_cell = worksheet.cell(key_address)
+        if int(key_cell.value) == 1:
+            return True
+        else:
+            return False
 
     def get_base_value(self) -> dict:
         worksheet = self.get_worksheet(BASE_WS)
         result = {}
         for variable in base_value_list:
-            var_name_cell = worksheet.find(variable)[0]
+            var_name_cell = worksheet.find(variable, matchEntireCell=True)[0]
             var_address = var_name_cell.address + (0, 1)
             var_cell = worksheet.cell(var_address)
             result[variable] = var_cell.value
@@ -85,12 +96,14 @@ class GameSheet():
         """
         worksheet = self.get_worksheet(TIMETABLE_WS)
 
-        date_name_cell = worksheet.find('today_date')[0]
+        date_name_cell = worksheet.find('today_date', matchEntireCell=True)[0]
         date_address = date_name_cell.address + (0, 1)
         date_cell = worksheet.cell(date_address)
         date_now = date(date_cell.value)
 
-        bool_name_cell = worksheet.find('is_market_open')[0]
+        bool_name_cell = worksheet.find(
+            'is_market_open',
+            matchEntireCell=True)[0]
         bool_address = bool_name_cell.address + (0, 1)
         bool_cell = worksheet.cell(bool_address)
         bool_ = bool(int(bool_cell.value))
@@ -120,7 +133,7 @@ class GameSheet():
 
     def get_effect(self, ticker: str) -> int:
         worksheet = self.get_worksheet(EFFECT_WS)
-        var_name_cell = worksheet.find(ticker)[0]
+        var_name_cell = worksheet.find(ticker, matchEntireCell=True)[0]
         var_address = var_name_cell.address + (0, 1)
         var_cell = worksheet.cell(var_address)
         effect = var_cell.value

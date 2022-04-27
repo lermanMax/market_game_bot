@@ -116,11 +116,11 @@ class GameUser(TgUser):
 
 
 class Game(CacheMixin):
-    @classmethod
+    @staticmethod
     def is_url_correct(gs_url: str) -> bool:
         return GameSheet.is_url_correct(gs_url)
 
-    @classmethod
+    @staticmethod
     def key_generator(size=5, chars=string.ascii_uppercase + string.digits):
         return ''.join(random.choice(chars) for _ in range(size))
 
@@ -130,17 +130,21 @@ class Game(CacheMixin):
         self.game_data = GameData(game_id)
         self.game_id = game_id
 
-        self._sell_factor = self.game_data.get_sell_factor()
-        self._buy_factor = self.game_data.get_buy_factor()
-        self._timezone = timezone(
-            timedelta(hours=self.game_data.hours_delta))
+    def get_sell_factor(self) -> float:
+        return self.game_data.get_sell_factor()
+
+    def get_buy_factor(self) -> float:
+        return self.game_data.get_buy_factor()
+
+    def get_timezone(self) -> float:
+        return timezone(timedelta(hours=self.game_data.hours_delta))
 
     def get_today(self) -> date:
-        today = datetime.now(self._timezone).date()
+        today = datetime.now(self.get_timezone).date()
         return today
 
     def get_time_now(self) -> time:
-        time_now = datetime.now(self._timezone).time()
+        time_now = datetime.now(self.get_timezone).time()
         return time_now
 
     def get_gs_link(self) -> str:
@@ -151,13 +155,16 @@ class Game(CacheMixin):
 
     def change_name(self, new_name: str) -> None:
         self.game_data.change_name(new_name)
+        self.game_data = GameData(self.game_id)  # update data after changes
 
     def change_gslink(self, gs_link: str) -> None:
         self.game_data.change_gslink(gs_link)
+        self.game_data = GameData(self.game_id)  # update data after changes
         gamesheet = self.get_game_sheet()
         self.change_name(new_name=gamesheet.get_title())
-        new_key = str(self.game_id).join(self.key_generator())
+        new_key = str(self.game_id) + self.key_generator()
         self.game_data.change_game_key(new_key)
+        self.game_data = GameData(self.game_id)  # update data after changes
         gamesheet.add_game_key(new_key)
 
     def is_market_open_now(self) -> bool:
@@ -188,14 +195,19 @@ class Game(CacheMixin):
         return Company.get(company_id)
 
     def load_base_value(self) -> None:
-        base_value_dict = self.game_sheet.get_base_value()
-        self.game_data.load_base_value(
-            base_value_dict=base_value_dict
+        base_value_dict = self.get_game_sheet().get_base_value()
+        self.game_data.fill_in_game_data(
+            game_data_dict=base_value_dict
         )
-        self._sell_factor = self.game_data.get_sell_factor()
-        self._buy_factor = self.game_data.get_buy_factor()
-        self._timezone = timezone(
-            timedelta(hours=self.game_data.hours_delta))
+        self.game_data = GameData(self.game_id)  # update data after changes
+
+    def load_base_value_if_its_ready(self) -> bool:
+        if self.get_game_sheet().is_base_values_ready():
+            self.load_base_value()
+            return True
+        else:
+            print('values_not_ready')
+            return False
 
     def create_share(self, company_id: int, owner_gameuser_id: int) -> Share:
         share_id = self.game_data.creat_share(
@@ -285,8 +297,8 @@ class Game(CacheMixin):
         for company in companyes_list:
             company = Company()
             old_price = company.get_price()
-            sell_factor = self._sell_factor
-            buy_factor = self._buy_factor
+            sell_factor = self.get_sell_factor()
+            buy_factor = self.get_buy_factor()
 
             sell_transactions = self.game_data.get_transactions(
                 date_deal=self.get_today(),
