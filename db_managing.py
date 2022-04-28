@@ -51,12 +51,25 @@ class MarketBotData:
     def get_superadmin_ids() -> list:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
-            select_script = '''SELECT superadmin.tg_id FROM superadmin ;'''
+            select_script = '''
+                SELECT superadmin.tg_id FROM superadmin ;'''
             cursor.execute(select_script)
             id_list = cursor.fetchall()
         connection.commit()
         connection.close()
         return [id_tuple[0] for id_tuple in id_list]
+
+    @staticmethod
+    def get_game_id_by_game_key(game_key: str) -> int:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            select_script = '''
+                SELECT game.game_id FROM game WHERE game_key = %s;'''
+            cursor.execute(select_script, (game_key,))
+            game_id, = cursor.fetchone()
+        connection.commit()
+        connection.close()
+        return game_id
 
 
 class TgUserData:
@@ -136,6 +149,9 @@ class GameUserData:
         self.cash = cash
         self.is_active = is_active
 
+    def get_tg_id(self) -> int:
+        return self.tg_id
+
     def get_first_name(self) -> str:
         return self.first_name
 
@@ -145,11 +161,20 @@ class GameUserData:
     def get_nickname(self) -> str:
         return self.nickname
 
-    def get_game(self) -> str:
+    def get_game(self) -> int:
         return self.game
 
     def get_cash(self) -> float:
-        return self.cash
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            select_script = '''
+                SELECT game_user.cash
+                FROM game_user WHERE gameuser_id = %s;'''
+            cursor.execute(select_script, (self.gameuser_id,))
+            cash, = cursor.fetchone()
+        connection.commit()
+        connection.close()
+        return cash
 
     def is_active(self) -> bool:
         return self.is_active()
@@ -190,18 +215,22 @@ class GameUserData:
         connection.commit()
         connection.close()
 
-    # ?
+    # +
     def activate(self) -> None:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             try:
-                cursor.execute('''SELECT game_user.gameuser_id FROM game_user WHERE game_user.is_active = TRUE;''')
-                activated_id, = cursor.fetchone()
-                cursor.execute('''UPDATE game_user SET game_user.is_active = FALSE WHERE gameuser_id = %s;''',
-                               (activated_id,))
-            except:
-                pass
-            update_script = '''UPDATE game_user SET game_user.is_active = TRUE gameuser_id = %s;'''
+                cursor.execute(
+                    '''UPDATE game_user
+                    SET is_active = FALSE
+                    WHERE tg_id = %s;''',
+                    (self.tg_id,))
+            except Exception as e:
+                print(e)
+            update_script = '''
+                UPDATE game_user
+                SET is_active = TRUE
+                WHERE gameuser_id = %s;'''
             cursor.execute(update_script, (self.gameuser_id,))
         connection.commit()
         connection.close()
@@ -226,7 +255,9 @@ class GameUserData:
     def get_id_list_of_shares(self, company_id: int) -> list:
         connection = psycopg2.connect(**db_config)
         with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
-            select_script = '''SELECT share.share_id FROM share WHERE share.owner = %s AND share.company = %s;'''
+            select_script = '''
+                SELECT share.share_id
+                FROM share WHERE share.owner = %s AND share.company = %s;'''
             cursor.execute(select_script, (self.gameuser_id, company_id))
             id_list = cursor.fetchall()
         connection.commit()
@@ -450,19 +481,25 @@ class GameData:
         connection.commit()
         connection.close()
 
-    def add_gameuser(self, tg_id: int) -> None:
+    def add_gameuser(self, tg_id: int) -> int:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (tg_id, self.game_id)
-            insert_script = '''INSERT INTO game_user (tg_id, game) VALUES (%s, %s);'''
+            insert_script = '''
+                INSERT INTO game_user (tg_id, game) VALUES (%s, %s)
+                RETURNING gameuser_id;'''
             cursor.execute(insert_script, insert_values)
+            gameuser_id, = cursor.fetchone()
         connection.commit()
         connection.close()
+        return gameuser_id
 
     def get_gameuser_ids(self) -> list:
         connection = psycopg2.connect(**db_config)
         with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
-            select_script = '''SELECT game_user.gameuser_id FROM game_user WHERE game_user.game = %s;'''
+            select_script = '''
+                SELECT game_user.gameuser_id
+                FROM game_user WHERE game_user.game = %s;'''
             cursor.execute(select_script, (self.game_id,))
             id_list = cursor.fetchall()
         connection.commit()

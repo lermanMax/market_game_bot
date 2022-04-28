@@ -4,9 +4,16 @@ import weakref
 import string
 import random
 from datetime import date, timezone, timedelta, datetime, time
+import logging
 
 from gs_module import GameSheet
-from db_managing import GameData, MarketBotData, SuperAdminData
+from db_managing import GameData, GameUserData, MarketBotData, \
+    SuperAdminData, TgUserData
+# from config import TIMEZONE_SERVER
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger('busines_logic')
 
 
 class CacheMixin(object):
@@ -42,16 +49,42 @@ class MarketBot():
     def get_superadmin_tg_ids(self) -> list:
         return self.market_bot_data.get_superadmin_ids()
 
+    def get_game_by_game_key(self, game_key: str) -> Game:
+        """_summary_
+
+        Args:
+            game_key (str): _description_
+
+        Returns:
+            Game: game object
+            None: if game_key is wrong
+        """
+        game_id = self.market_bot_data.get_game_id_by_game_key(game_key)
+        if game_id:
+            game = Game.get(game_id)
+            return game
+        else:
+            return None
+
+    def get_active_gameuser_id_for(self, tg_id: int) -> int:
+        return self.market_bot_data.get_active_gameuser_id(tg_id)
+
 
 class TgUser(CacheMixin):
     def __init__(self, tg_id: int):
         super(TgUser, self).__init__(key=tg_id)
+        self.tg_id = tg_id
+        self.tg_data = TgUserData(tg_id)
 
     def get_tg_id(self) -> int:
-        pass
+        return self.tg_id
 
     def get_username(self) -> str:
-        pass
+        username = self.tg_data.get_tg_username()
+        if not username:
+            return self.get_tg_id()
+        else:
+            return username
 
 
 class SuperAdmin(TgUser):
@@ -66,10 +99,29 @@ class SuperAdmin(TgUser):
         return game_id
 
 
-class GameUser(TgUser):
-    def __init__(self, tg_id: int):
-        super(GameUser, self).__init__(tg_id=tg_id)
-        self.gameuser_data = 0
+class GameUser(CacheMixin):
+    def __init__(self, gameuser_id: int):
+        self.gameuser_id = gameuser_id
+        self.gameuser_data = GameUserData(self.gameuser_id)
+
+    def get_tg_id(self) -> int:
+        return self.gameuser_data.get_tg_id()
+
+    def get_first_name(self) -> str:
+        return self.gameuser_data.get_first_name()
+
+    def get_last_name(self) -> str:
+        return self.gameuser_data.get_last_name()
+
+    def get_nickname(self) -> str:
+        return self.gameuser_data.get_nickname()
+
+    def activate(self):
+        self.gameuser_data.activate()
+
+    def get_game(self) -> Game:
+        game_id = self.gameuser_data.get_game()
+        return Game.get(game_id)
 
     def get_cash(self) -> float:
         return self.gameuser_data.get_cash()
@@ -81,11 +133,15 @@ class GameUser(TgUser):
         self.gameuser_data.change_last_name(
             new_last_name=new_last_name
         )
+        # update data from DB
+        self.gameuser_data = GameUserData(self.gameuser_id)
 
     def change_first_name(self, new_first_name: str) -> None:
         self.gameuser_data.change_first_name(
             new_first_name=new_first_name
         )
+        # update data from DB
+        self.gameuser_data = GameUserData(self.gameuser_id)
 
     def is_nickname_unique(self, nickname: str) -> bool:
         result = self.gameuser_data.is_nickname_unique(
@@ -97,9 +153,8 @@ class GameUser(TgUser):
         self.gameuser_data.change_nickname(
             new_nickname=new_nickname
         )
-
-    def get_nickname(self) -> str:
-        return self.gameuser_data.get_nickname()
+        # update data from DB
+        self.gameuser_data = GameUserData(self.gameuser_id)
 
     def get_list_of_shares(self, company_id: int = None) -> list:
         id_list = self.gameuser_data.get_id_list_of_shares(
@@ -147,6 +202,11 @@ class Game(CacheMixin):
         time_now = datetime.now(self.get_timezone).time()
         return time_now
 
+    def get_time_for_open_market(self) -> time:
+        # server_tz = timezone(timedelta(hours=TIMEZONE_SERVER))
+        # open_time = self.game_data.get_open_time()
+        pass
+
     def get_gs_link(self) -> str:
         return self.game_data.get_gs_link()
 
@@ -171,10 +231,10 @@ class Game(CacheMixin):
         return self.game_data.get_is_market_open()
 
     def open_market(self):
-        self.game_data.change_is_market_open(True)
+        self.game_data.open_market()
 
     def close_market(self):
-        self.game_data.change_is_market_open(False)
+        self.game_data.close_market()
 
     def update_is_market_open(self) -> None:
         date_now, is_open = self.game_sheet.get_date_and_bool_from_timetable()
@@ -183,8 +243,22 @@ class Game(CacheMixin):
         else:
             self.close_market()
 
-    def add_gameuser(self, tg_id: int) -> None:
-        self.game_data.add_gameuser(tg_id)
+    def add_gameuser(self, tg_id: int) -> GameUser:
+        gameuser_id = self.game_data.add_gameuser(tg_id)
+        gameuser = GameUser(gameuser_id)
+        gameuser.change_cash(
+            new_cash=self.game_data.get_start_cash()
+        )
+        return gameuser
+
+    def add_gameuser_in_sheet(self, gameuser_id: int) -> int:
+        gameuser = GameUser.get(gameuser_id)
+        self.get_game_sheet().add_gameuser(
+            last_name=gameuser.get_last_name(),
+            first_name=gameuser.get_first_name(),
+            nickname=gameuser.get_nickname(),
+            tg_username=TgUser.get(gameuser.get_tg_id()).get_username()
+        )
 
     def add_company(self, company_name: str, company_ticker: str) -> Company:
         company_id = self.game_data.add_company(
@@ -203,10 +277,15 @@ class Game(CacheMixin):
 
     def load_base_value_if_its_ready(self) -> bool:
         if self.get_game_sheet().is_base_values_ready():
-            self.load_base_value()
-            return True
+            try:
+                self.load_base_value()
+                log.info('values was loaded')
+                return True
+            except Exception as e:
+                log.error(f'values_not_correct: { e }')
+                return False
         else:
-            print('values_not_ready')
+            log.info('values_not_ready')
             return False
 
     def create_share(self, company_id: int, owner_gameuser_id: int) -> Share:

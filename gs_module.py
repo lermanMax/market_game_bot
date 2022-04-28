@@ -28,6 +28,19 @@ base_value_list = [
     'chart_link'
 ]
 
+base_value_int = [
+    'timezone',
+    'start_price',
+    'start_cash',
+    'diversity',
+]
+
+base_value_float = [
+    'max_percentage',
+    'sell_factor',
+    'buy_factor',
+]
+
 
 class GameSheet():
     @staticmethod
@@ -41,7 +54,7 @@ class GameSheet():
                 return True
             else:
                 return False
-        except:
+        except Exception:
             return False
 
     def __init__(self, gs_link: str):
@@ -84,7 +97,12 @@ class GameSheet():
             var_name_cell = worksheet.find(variable, matchEntireCell=True)[0]
             var_address = var_name_cell.address + (0, 1)
             var_cell = worksheet.cell(var_address)
-            result[variable] = var_cell.value
+            value = var_cell.value
+            if variable in base_value_int:
+                value = int(value)
+            elif variable in base_value_float:
+                value = float(value.replace(',', '.'))
+            result[variable] = value
 
         return result
 
