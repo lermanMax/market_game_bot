@@ -18,7 +18,8 @@ class MarketBotData:
         with connection.cursor() as cursor:
             insert_values = (tg_id, tg_username)
             insert_script = '''INSERT INTO tg_user (tg_id, username) VALUES (%s, %s)
-                            ON CONFLICT (tg_id) DO UPDATE SET username = Excluded.username;'''
+                            ON CONFLICT (tg_id)
+                            DO UPDATE SET username = Excluded.username;'''
             cursor.execute(insert_script, insert_values)
         connection.commit()
         connection.close()
@@ -372,7 +373,16 @@ class GameData:
         return self.close_time
 
     def is_market_open(self) -> bool:
-        return self.is_market_open
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            select_script = '''
+                SELECT game.is_market_open
+                FROM game WHERE game_id = %s;'''
+            cursor.execute(select_script, (self.game_id,))
+            is_market_open, = cursor.fetchone()
+        connection.commit()
+        connection.close()
+        return is_market_open
 
     def get_start_price(self) -> int:
         return self.start_price
@@ -512,7 +522,6 @@ class GameData:
                     end_day = %s,
                     open_time = %s,
                     close_time = %s,
-                    is_market_open = %s,
                     start_price = %s,
                     start_cash = %s,
                     max_percentage = %s,
