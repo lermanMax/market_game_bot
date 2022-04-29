@@ -7,7 +7,7 @@ from datetime import date, timezone, timedelta, datetime, time
 import logging
 
 from gs_module import GameSheet
-from db_managing import GameData, GameUserData, MarketBotData, \
+from db_managing import CompanyData, GameData, GameUserData, MarketBotData, ShareData, \
     SuperAdminData, TgUserData
 # from config import TIMEZONE_SERVER
 
@@ -192,10 +192,10 @@ class Game(CacheMixin):
         return self.game_data.get_buy_factor()
 
     def get_timezone(self) -> float:
-        return timezone(timedelta(hours=self.game_data.hours_delta))
+        return timezone(timedelta(hours=self.game_data.get_timezone()))
 
     def get_today(self) -> date:
-        today = datetime.now(self.get_timezone).date()
+        today = datetime.now(self.get_timezone()).date()
         return today
 
     def get_time_now(self) -> time:
@@ -228,7 +228,7 @@ class Game(CacheMixin):
         gamesheet.add_game_key(new_key)
 
     def is_market_open_now(self) -> bool:
-        return self.game_data.get_is_market_open()
+        return self.game_data.is_market_open()
 
     def open_market(self):
         self.game_data.open_market()
@@ -260,14 +260,6 @@ class Game(CacheMixin):
             tg_username=TgUser.get(gameuser.get_tg_id()).get_username()
         )
 
-    def add_company(self, company_name: str, company_ticker: str) -> Company:
-        company_id = self.game_data.add_company(
-            company_name=company_name,
-            company_ticker=company_ticker,
-            price=self.game_data.get_start_price()
-        )
-        return Company.get(company_id)
-
     def load_base_value(self) -> None:
         base_value_dict = self.get_game_sheet().get_base_value()
         self.game_data.fill_in_game_data(
@@ -288,8 +280,24 @@ class Game(CacheMixin):
             log.info('values_not_ready')
             return False
 
+    def add_company(self, company_name: str, company_ticker: str) -> Company:
+        company_id = self.game_data.add_company(
+            company_name=company_name,
+            company_ticker=company_ticker,
+            price=self.game_data.get_start_price()
+        )
+        return Company.get(company_id)
+
+    def load_companes_from_sheet(self):
+        companes_names_list = self.get_game_sheet().get_company_names()
+        for company_dict in companes_names_list:
+            self.add_company(
+                company_name=company_dict['name'],
+                company_ticker=company_dict['ticker']
+            )
+
     def create_share(self, company_id: int, owner_gameuser_id: int) -> Share:
-        share_id = self.game_data.creat_share(
+        share_id = self.game_data.create_share(
             company_id=company_id,
             owner_gameuser_id=owner_gameuser_id
         )
@@ -319,19 +327,19 @@ class Game(CacheMixin):
         sum_of_deal = company.get_price() * shares_number
         if sum_of_deal > buyer.get_cash():
             raise Exception(
-                f'GameUser { buyer.get_tg_id() } doesnt have enough money')
+                f'GameUser { buyer.gameuser_id } doesnt have enough money')
         new_cash = buyer.get_cash() - sum_of_deal
         buyer.change_cash(
             new_cash=round(new_cash, 2)
         )
         shares_list = [
-            self.create_share(company.get_id, buyer.get_tg_id)
+            self.create_share(company.get_id(), buyer.gameuser_id)
             for _ in range(shares_number)
         ]
 
         self.game_data.new_transaction(
-            data_deal=self.get_today(),
-            subject_deal_id=buyer.get_tg_id(),
+            date_deal=self.get_today(),
+            subject_deal_id=buyer.gameuser_id,
             type_deal='BUY',
             company_id=company.get_id(),
             number_of_shares=shares_number
@@ -348,8 +356,8 @@ class Game(CacheMixin):
         if shares_number > len(shares_list):
             shares_number = len(shares_list)
 
-        for share in shares_list:
-            self.delete_share(share_id=share.get_id())
+        for share in shares_list[:shares_number]:
+            self.delete_share(share_id=share.get_share_id())
 
         sum_of_deal = company.get_price() * shares_number
         new_cash = seller.get_cash() + sum_of_deal
@@ -357,8 +365,8 @@ class Game(CacheMixin):
             new_cash=round(new_cash, 2)
         )
         self.game_data.new_transaction(
-            data_deal=self.get_today(),
-            subject_deal_id=seller.get_tg_id(),
+            date_deal=self.get_today(),
+            subject_deal_id=seller.gameuser_id,
             type_deal='SELL',
             company_id=company.get_id(),
             number_of_shares=shares_number
@@ -366,15 +374,14 @@ class Game(CacheMixin):
         return shares_list
 
     def get_list_of_companyes(self) -> list:
-        id_list = self.game_data.get_list_of_companyes_id()
-        list_of_comapnyes = [Company.get(comapny_id) for comapny_id in id_list]
+        id_list = self.game_data.get_list_of_company_ids()
+        list_of_comapnyes = [Company.get(company_id) for company_id in id_list]
         return list_of_comapnyes
 
     def update_prices(self) -> None:
         companyes_list = self.get_list_of_companyes()
 
         for company in companyes_list:
-            company = Company()
             old_price = company.get_price()
             sell_factor = self.get_sell_factor()
             buy_factor = self.get_buy_factor()
@@ -475,42 +482,45 @@ class Game(CacheMixin):
 class Company(CacheMixin):
     def __init__(self, company_id: int):
         super(Company, self).__init__(key=company_id)
-
-        self.company_data = 0
+        self.company_id = company_id
+        self.company_data = CompanyData(company_id)
 
     def get_id(self) -> int:
-        pass
+        return self.company_id
+
+    def get_name(self) -> str:
+        return self.company_data.get_company_name()
+
+    def get_ticker(self) -> str:
+        return self.company_data.get_ticker()
 
     def get_price(self) -> float:
         return self.company_data.get_price()
 
-    def change_price(self, new_price) -> None:
-        pass
-
-    def get_ticker(self) -> str:
-        pass
+    def change_price(self, new_price: float) -> None:
+        self.company_data.change_price(new_price)
 
     def get_effect(self) -> int:
-        pass
+        return self.company_data.get_effect()
 
-    def change_effect(self) -> None:
-        pass
+    def change_effect(self, new_effect: int) -> None:
+        return self.company_data.change_effect(new_effect)
 
 
 class Share(CacheMixin):
     def __init__(self, share_id: int):
         super(Share, self).__init__(key=share_id)
+        self.share_id = share_id
+        self.share_data = ShareData(share_id)
 
-        self.share_data = 0
-
-    def get_id(self) -> int:
-        pass
+    def get_share_id(self) -> int:
+        return self.share_id
 
     def get_company_id(self) -> int:
         return self.share_data.get_company_id()
 
     def get_company(self) -> Company:
-        return Company.get(self.get_company_id)
+        return Company.get(self.get_company_id())
 
     def get_price(self) -> float:
         return self.get_company().get_price()

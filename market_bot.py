@@ -1,4 +1,5 @@
 import logging
+import typing
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.utils import callback_data
@@ -9,7 +10,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 # Import modules of this project
 from config import API_TOKEN, SUPERADMIN_PASS, BOT_MAILADDRESS
 from schedule_module import schedule, run_continuously
-from business_logic import Game, MarketBot, SuperAdmin, GameUser
+from business_logic import Company, Game, MarketBot, Share, SuperAdmin, GameUser
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +22,7 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 
 # Sructure of callback buttons
 button_cb = callback_data.CallbackData(
-    'B', 'q_name', 'ans', 's_id', 'data')
+    'btn', 'question_name', 'answer', 'data')
 
 # Start the background thread of schedule
 stop_run_continuously = run_continuously(interval=20)
@@ -45,7 +46,7 @@ def get_empty_keyboard():
     return keyboard
 
 
-@dp.message_handler(commands=['start'])
+@dp.message_handler(commands=['start'], state="*")
 async def start_command(message: types.Message, state: FSMContext):
     log.info('start command from: %r', message.from_user.id)
 
@@ -59,10 +60,11 @@ async def start_command(message: types.Message, state: FSMContext):
     await new_gameuser_command(message, state)
 
 
-@dp.message_handler(commands=['help'])
-async def send_help(message: types.Message):
+@dp.message_handler(commands=['help'], state="*")
+async def send_help(message: types.Message, state: FSMContext):
     log.info('help command from: %r', message.from_user.id)
     gameuser_id = market_bot.get_active_gameuser_id_for(message.from_user.id)
+    await state.finish()
     if gameuser_id:
         await message.answer(
             get_text_from('./text_of_questions/help.txt'),
@@ -137,6 +139,7 @@ def load_base_value_if_its_ready(game: Game, admin_id: int):
     def job():
         if game.load_base_value_if_its_ready():
             log.info(f'base values soccesful loaded in game: { game.game_id }')
+            game.load_companes_from_sheet()
             game.open_market()
             return schedule.CancelJob
     return job
@@ -153,7 +156,7 @@ async def new_gs_link(message: types.Message, state: FSMContext):
         game = Game.get(state_data['game_id'])
         game.change_gslink(message.text)
         await state.finish()
-        schedule.every(10).seconds.do(
+        schedule.every(20).seconds.do(
             load_base_value_if_its_ready(
                 game=game,
                 admin_id=message.from_user.id
@@ -264,7 +267,7 @@ async def gameuser_nickname(message: types.Message, state: FSMContext):
     else:
         log.info('wrong gameuser_nickname from: %r', message.from_user.id)
         await message.answer(
-                get_text_from('./text_of_questions/nickname_wrong.txt'))
+            get_text_from('./text_of_questions/nickname_wrong.txt'))
 
 
 #  ---------------------------------------------------------- КЛАВИАТУРА ИГРОКА
@@ -274,7 +277,10 @@ chart_button_word = 'Графики/Статистика'
 how_to_use_button_word = 'Как пользоваться ботом?'
 update_button = 'Обновить'
 
-basemenu_list = [
+buy_button = 'Купить'
+sell_button = 'Продать'
+
+gameuser_buttons_list = [
     market_button_word,
     portfolio_button_word,
     chart_button_word,
@@ -285,9 +291,234 @@ basemenu_list = [
 
 def get_gameuser_keyboard():
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for name in basemenu_list:
+    for name in gameuser_buttons_list:
         keyboard.add(types.KeyboardButton(name))
     return keyboard
+
+
+def make_inline_keyboard(question_name, answers, data=0):
+    """ Возвращает клавиатуру """
+    if not answers:
+        return None
+
+    keyboard = types.InlineKeyboardMarkup()
+    row = []
+    for answer in answers:  # make a botton for every answer
+        cb_data = button_cb.new(
+            question_name=question_name,
+            answer=answer,
+            data=data)
+        row.append(types.InlineKeyboardButton(answer,
+                                              callback_data=cb_data))
+    if len(row) <= 2:
+        keyboard.row(*row)
+    else:
+        for button in row:
+            keyboard.row(button)
+
+    return keyboard
+
+
+def make_keyboard_for_company(company_id: int):
+    keyboard = make_inline_keyboard(
+        question_name='market_deal',
+        answers=[buy_button, sell_button],
+        data=company_id
+    )
+    return keyboard
+
+
+async def send_market(message: types.Message, gameuser: GameUser):
+    logging.info('send_market to: %r', message.from_user.id)
+    game = gameuser.get_game()
+    is_market_open = game.is_market_open_now()
+
+    cash = gameuser.get_cash()
+    if is_market_open:
+        market_closed = ''
+    else:
+        market_closed = '\n<b>Рынок закрыт</b>'
+
+    text = (
+        'Это список всех компаний.'
+        f'\nВаши свободные средства: { cash }'
+        f'{ market_closed }'
+    )
+    await message.answer(
+        text=text,
+        reply_markup=get_gameuser_keyboard()
+    )
+    companes = game.get_list_of_companyes()
+    for company in companes:
+        count = len(
+            gameuser.get_list_of_shares(
+                company_id=company.get_id()
+            )
+        )
+        text = (
+            f'<b>{ company.get_name() }</b> ({ company.get_ticker() })'
+            f'\nЦена: {company.get_price()}'
+            f'\nУ вас в портфеле этих акций: { count }'
+        )
+        if is_market_open:
+            keyboard = make_keyboard_for_company(company.get_id())
+        else:
+            keyboard = None
+        await message.answer(
+            text=text,
+            reply_markup=keyboard
+        )
+
+
+class MarketDeal(StatesGroup):
+    waiting_number_shares = State()
+
+
+@dp.callback_query_handler(
+    button_cb.filter(question_name=['market_deal']),
+    state='*')
+async def callback_market_deal(
+        query: types.CallbackQuery,
+        callback_data: typing.Dict[str, str],
+        state: FSMContext):
+    logging.info('Got this callback data: %r', callback_data)
+
+    gameuser_id = market_bot.get_active_gameuser_id_for(query.from_user.id)
+    gameuser = GameUser.get(gameuser_id)
+    game = gameuser.get_game()
+
+    if not game.is_market_open_now:
+        await query.message.answer(
+            get_text_from('./text_of_questions/market_is_close.txt'))
+        return
+
+    await MarketDeal.waiting_number_shares.set()
+    company = Company.get(callback_data['data'])
+    if callback_data['answer'] == buy_button:
+        text = (
+            '<b>Введите число</b> акций'
+            f' { company.get_name() } ({ company.get_ticker() })'
+            ' которое вы хотите купить?'
+            f'\nЦена за штуку: {company.get_price()}'
+            f'\nВаши свободные средства: { gameuser.get_cash() }'
+        )
+    elif callback_data['answer'] == sell_button:
+        count = len(
+            gameuser.get_list_of_shares(
+                company_id=company.get_id()
+            )
+        )
+        text = (
+            '<b>Введите число</b> акций'
+            f' { company.get_name() } ({ company.get_ticker() })'
+            ' которое вы хотите продать?'
+            f'\nЦена за штуку: {company.get_price()}'
+            f'\nУ вас в портфеле этих акций: { count }'
+        )
+
+    await query.message.answer(text=text)
+    await state.update_data(answer=callback_data['answer'])
+    await state.update_data(data_=callback_data['data'])
+
+
+@dp.message_handler(
+    content_types=types.message.ContentType.TEXT,
+    state=MarketDeal.waiting_number_shares)
+async def number_of_shares(message: types.Message, state: FSMContext):
+    log.info('number_of_shares from: %r', message.from_user.id)
+    try:
+        number = int(message.text)
+        if not number > 0:
+            await message.answer(
+                text='Введите целое число больше нуля:')
+            return
+    except Exception:
+        await message.answer(
+            text='Введите целое число больше нуля:')
+        return
+    state_data = await state.get_data()
+
+    gameuser_id = market_bot.get_active_gameuser_id_for(message.from_user.id)
+    gameuser = GameUser.get(gameuser_id)
+    game = gameuser.get_game()
+    company = Company.get(state_data['data_'])
+
+    if state_data['answer'] == buy_button:
+        game.buy_deal(
+            buyer=gameuser,
+            company=company,
+            shares_number=number
+        )
+    elif state_data['answer'] == sell_button:
+        game.sell_deal(
+            seller=gameuser,
+            company=company,
+            shares_number=number
+        )
+    await state.finish()
+    count = len(
+        gameuser.get_list_of_shares(
+            company_id=company.get_id()
+        )
+    )
+    text = (
+        'Торговая сделка успешно совершена.'
+        f'\n{ company.get_name() } ({ company.get_ticker() })'
+        f'\nТеперь у вас в портфеле этих акций: { count }'
+        f'\nВаши свободные средства: { gameuser.get_cash() }'
+    )
+    await message.answer(
+        text=text,
+        reply_markup=get_gameuser_keyboard()
+    )
+
+
+async def send_gameuser_partfolio(message: types.Message, gameuser: GameUser):
+    logging.info('send_gameuser_partfolio to: %r', message.from_user.id)
+    size = gameuser.get_portfolio_size()
+
+    text = (
+        f'Оценка портфеля: { size }'
+        f'\nСвободные средства: { gameuser.get_cash() }'
+    )
+    # for share in gameuser.get_list_of_shares():
+    #     share = Share()
+    #     s = f'{ share.get_company().get_ticker()} - '
+    await message.answer(
+        text=text,
+        reply_markup=get_gameuser_keyboard()
+    )
+
+gameuser_buttons_dict = {
+    market_button_word: send_market,
+    portfolio_button_word: send_gameuser_partfolio,
+    chart_button_word: 0,
+    how_to_use_button_word: 0,
+    update_button: 0
+}
+
+
+@dp.message_handler(
+    lambda message: message.text in gameuser_buttons_list,
+    state='*'
+)
+async def gameuser_keyboard(message: types.Message, state: FSMContext):
+    """
+    Получаем нажатие кнопки из клавиатуры игрока
+    """
+    logging.info('push gameuser_keyboard from: %r', message.from_user.id)
+
+    gameuser_id = market_bot.get_active_gameuser_id_for(message.from_user.id)
+    if gameuser_id:
+        gameuser = GameUser.get(gameuser_id)
+    else:
+        logging.error('push button from unkown user: %r', message.from_user.id)
+        return
+
+    await gameuser_buttons_dict[message.text](
+        message=message,
+        gameuser=gameuser
+    )
 
 
 if __name__ == '__main__':

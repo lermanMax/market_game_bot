@@ -106,6 +106,33 @@ class GameSheet():
 
         return result
 
+    def get_company_names(self) -> list:
+        """return list of dicts with name of companes
+
+        Returns:
+            list: [
+                {
+                    'name': row[0],
+                    'ticker': row[1]
+                },
+                {...},
+            ]
+        """
+        worksheet = self.get_worksheet(EFFECT_WS)
+        result = []
+        matrix = worksheet.get_values(
+            start='A3',
+            end='B100',
+        )
+        for row in matrix:
+            result.append(
+                {
+                    'name': row[0],
+                    'ticker': row[1]
+                }
+            )
+        return result
+
     def get_date_and_bool_from_timetable(self) -> tuple:
         """Получить дату и значение переменной is_market_open.
 
