@@ -1,4 +1,6 @@
+from email.message import Message
 import logging
+from random import randrange
 import typing
 
 from aiogram import Bot, Dispatcher, executor, types
@@ -10,7 +12,8 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 # Import modules of this project
 from config import API_TOKEN, SUPERADMIN_PASS, BOT_MAILADDRESS
 from schedule_module import schedule, run_continuously
-from business_logic import Company, Game, MarketBot, Share, SuperAdmin, GameUser
+from business_logic import Company, DealIllegal, Game, MarketBot, \
+    NotEnoughMoney, SuperAdmin, GameUser
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -279,6 +282,7 @@ update_button = 'Обновить'
 
 buy_button = 'Купить'
 sell_button = 'Продать'
+cancel_button = 'Отменить сделку'
 
 gameuser_buttons_list = [
     market_button_word,
@@ -297,7 +301,7 @@ def get_gameuser_keyboard():
 
 
 def make_inline_keyboard(question_name, answers, data=0):
-    """ Возвращает клавиатуру """
+    """Возвращает клавиатуру для сообщений"""
     if not answers:
         return None
 
@@ -324,6 +328,14 @@ def make_keyboard_for_company(company_id: int):
         question_name='market_deal',
         answers=[buy_button, sell_button],
         data=company_id
+    )
+    return keyboard
+
+
+def make_keyboard_for_deal():
+    keyboard = make_inline_keyboard(
+        question_name='cancel',
+        answers=[cancel_button]
     )
     return keyboard
 
@@ -356,7 +368,7 @@ async def send_market(message: types.Message, gameuser: GameUser):
             )
         )
         text = (
-            f'<b>{ company.get_name() }</b> ({ company.get_ticker() })'
+            f'📈 <b>{ company.get_name() }</b> ({ company.get_ticker() })'
             f'\nЦена: {company.get_price()}'
             f'\nУ вас в портфеле этих акций: { count }'
         )
@@ -368,6 +380,104 @@ async def send_market(message: types.Message, gameuser: GameUser):
             text=text,
             reply_markup=keyboard
         )
+
+
+async def send_gameuser_partfolio(message: types.Message, gameuser: GameUser):
+    logging.info('send_gameuser_partfolio to: %r', message.from_user.id)
+    size = gameuser.get_portfolio_size()
+
+    text = (
+        f'Оценка портфеля: { size }'
+        f'\nСвободные средства: { gameuser.get_cash() }'
+        '\n------------------'
+    )
+    shares_dict = {}
+    for share in gameuser.get_list_of_shares():
+        if share.get_company_id() in shares_dict:
+            shares_dict[share.get_company_id()] += 1
+        else:
+            shares_dict[share.get_company_id()] = 1
+
+    for company_id, number in shares_dict.items():
+        company = Company.get(company_id)
+        s = f'\n{company.get_ticker()} - {number} - {company.get_price()}'
+        text += s
+    await message.answer(
+        text=text,
+        reply_markup=get_gameuser_keyboard()
+    )
+
+
+async def send_gameuser_chart_link(message: types.Message, gameuser: GameUser):
+    logging.info('send_gameuser_chart_link to: %r', message.from_user.id)
+    gameuser_id = market_bot.get_active_gameuser_id_for(message.from_user.id)
+    gameuser = GameUser.get(gameuser_id)
+    game = gameuser.get_game()
+
+    text = (
+        f'Ссылка на графики: { game.get_chart_link() }'
+    )
+
+    await message.answer(
+        text=text,
+        reply_markup=get_gameuser_keyboard()
+    )
+
+
+async def send_gameuser_help(message: types.Message, gameuser: GameUser):
+    logging.info('send_gameuser_help to: %r', message.from_user.id)
+    gameuser_id = market_bot.get_active_gameuser_id_for(message.from_user.id)
+    gameuser = GameUser.get(gameuser_id)
+    game = gameuser.get_game()
+
+    text = (
+        'Инструкция как нажимать / куда покупать'
+        f'\nСсылка на администратора: { game.get_admin_contact() }'
+    )
+
+    await message.answer(
+        text=text,
+        reply_markup=get_gameuser_keyboard()
+    )
+
+
+async def send_gameuser_keyboard(message: types.Message, gameuser: GameUser):
+    logging.info('send_gameuser_keyboard to: %r', message.from_user.id)
+    await message.answer(
+        text='Клавиатура обновлена',
+        reply_markup=get_gameuser_keyboard()
+    )
+
+
+gameuser_buttons_dict = {
+    market_button_word: send_market,
+    portfolio_button_word: send_gameuser_partfolio,
+    chart_button_word: send_gameuser_chart_link,
+    how_to_use_button_word: send_gameuser_help,
+    update_button: send_gameuser_keyboard
+}
+
+
+@dp.message_handler(
+    lambda message: message.text in gameuser_buttons_list,
+    state='*')
+async def gameuser_keyboard(message: types.Message, state: FSMContext):
+    """
+    Получаем нажатие кнопки из клавиатуры игрока
+    """
+    logging.info('push gameuser_keyboard from: %r', message.from_user.id)
+
+    gameuser_id = market_bot.get_active_gameuser_id_for(message.from_user.id)
+    if gameuser_id:
+        gameuser = GameUser.get(gameuser_id)
+    else:
+        logging.error('push button from unkown user: %r', message.from_user.id)
+        return
+
+    await gameuser_buttons_dict[message.text](
+        message=message,
+        gameuser=gameuser
+    )
 
 
 class MarketDeal(StatesGroup):
@@ -387,12 +497,11 @@ async def callback_market_deal(
     gameuser = GameUser.get(gameuser_id)
     game = gameuser.get_game()
 
-    if not game.is_market_open_now:
+    if not game.is_market_open_now():
         await query.message.answer(
             get_text_from('./text_of_questions/market_is_close.txt'))
         return
 
-    await MarketDeal.waiting_number_shares.set()
     company = Company.get(callback_data['data'])
     if callback_data['answer'] == buy_button:
         text = (
@@ -408,6 +517,10 @@ async def callback_market_deal(
                 company_id=company.get_id()
             )
         )
+        if count == 0:
+            await query.message.answer(
+                get_text_from('./text_of_questions/dont_have_shares.txt'))
+            return
         text = (
             '<b>Введите число</b> акций'
             f' { company.get_name() } ({ company.get_ticker() })'
@@ -415,10 +528,33 @@ async def callback_market_deal(
             f'\nЦена за штуку: {company.get_price()}'
             f'\nУ вас в портфеле этих акций: { count }'
         )
-
-    await query.message.answer(text=text)
+    await MarketDeal.waiting_number_shares.set()
+    await query.answer()
+    msg = await query.message.answer(
+        text=text, reply_markup=make_keyboard_for_deal())
     await state.update_data(answer=callback_data['answer'])
     await state.update_data(data_=callback_data['data'])
+    await state.update_data(message_id=msg.message_id)
+
+
+async def pashalka(message: Message):
+    if randrange(0, 21, 1) == 20:
+        await message.answer(text='ГАЛЯ, отмена!')
+
+
+@dp.callback_query_handler(
+    button_cb.filter(question_name=['cancel']),
+    state='*')
+async def callback_cancel_deal(
+        query: types.CallbackQuery,
+        callback_data: typing.Dict[str, str],
+        state: FSMContext):
+    logging.info('Got this callback data: %r', callback_data)
+
+    if callback_data['answer'] == cancel_button:
+        await pashalka(query.message)
+        await query.message.delete()
+        await state.finish()
 
 
 @dp.message_handler(
@@ -443,81 +579,56 @@ async def number_of_shares(message: types.Message, state: FSMContext):
     game = gameuser.get_game()
     company = Company.get(state_data['data_'])
 
+    if not game.is_market_open_now():
+        await message.answer(
+            get_text_from('./text_of_questions/market_is_close.txt'))
+        return
+
     if state_data['answer'] == buy_button:
-        game.buy_deal(
-            buyer=gameuser,
-            company=company,
-            shares_number=number
-        )
+        try:
+            game.buy_deal(
+                buyer=gameuser,
+                company=company,
+                shares_number=number
+            )
+            text_was_sold = ''
+        except NotEnoughMoney:
+            await message.answer(
+                get_text_from(
+                    './text_of_questions/not_enough_money_for_buy.txt'))
+            return
+        except DealIllegal:
+            await message.answer(
+                get_text_from(
+                    './text_of_questions/you_want_to_many.txt'))
+            return
     elif state_data['answer'] == sell_button:
-        game.sell_deal(
+        real_number = game.sell_deal(
             seller=gameuser,
             company=company,
             shares_number=number
         )
+        text_was_sold = f'\nБыло продано: { real_number }'
     await state.finish()
     count = len(
         gameuser.get_list_of_shares(
             company_id=company.get_id()
         )
     )
+
     text = (
         'Торговая сделка успешно совершена.'
         f'\n{ company.get_name() } ({ company.get_ticker() })'
+        f'{ text_was_sold }'
         f'\nТеперь у вас в портфеле этих акций: { count }'
         f'\nВаши свободные средства: { gameuser.get_cash() }'
     )
+    await bot.delete_message(
+        chat_id=message.from_user.id,
+        message_id=state_data['message_id'])
     await message.answer(
         text=text,
         reply_markup=get_gameuser_keyboard()
-    )
-
-
-async def send_gameuser_partfolio(message: types.Message, gameuser: GameUser):
-    logging.info('send_gameuser_partfolio to: %r', message.from_user.id)
-    size = gameuser.get_portfolio_size()
-
-    text = (
-        f'Оценка портфеля: { size }'
-        f'\nСвободные средства: { gameuser.get_cash() }'
-    )
-    # for share in gameuser.get_list_of_shares():
-    #     share = Share()
-    #     s = f'{ share.get_company().get_ticker()} - '
-    await message.answer(
-        text=text,
-        reply_markup=get_gameuser_keyboard()
-    )
-
-gameuser_buttons_dict = {
-    market_button_word: send_market,
-    portfolio_button_word: send_gameuser_partfolio,
-    chart_button_word: 0,
-    how_to_use_button_word: 0,
-    update_button: 0
-}
-
-
-@dp.message_handler(
-    lambda message: message.text in gameuser_buttons_list,
-    state='*'
-)
-async def gameuser_keyboard(message: types.Message, state: FSMContext):
-    """
-    Получаем нажатие кнопки из клавиатуры игрока
-    """
-    logging.info('push gameuser_keyboard from: %r', message.from_user.id)
-
-    gameuser_id = market_bot.get_active_gameuser_id_for(message.from_user.id)
-    if gameuser_id:
-        gameuser = GameUser.get(gameuser_id)
-    else:
-        logging.error('push button from unkown user: %r', message.from_user.id)
-        return
-
-    await gameuser_buttons_dict[message.text](
-        message=message,
-        gameuser=gameuser
     )
 
 

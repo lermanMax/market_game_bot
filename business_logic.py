@@ -1,14 +1,13 @@
 from __future__ import annotations
 from collections import defaultdict
-import weakref
 import string
 import random
 from datetime import date, timezone, timedelta, datetime, time
 import logging
 
 from gs_module import GameSheet
-from db_managing import CompanyData, GameData, GameUserData, MarketBotData, ShareData, \
-    SuperAdminData, TgUserData
+from db_managing import CompanyData, GameData, GameUserData, MarketBotData, \
+    ShareData, SuperAdminData, TgUserData
 # from config import TIMEZONE_SERVER
 
 # Configure logging
@@ -16,16 +15,24 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('busines_logic')
 
 
+class NotEnoughMoney(Exception):
+    pass
+
+
+class DealIllegal(Exception):
+    pass
+
+
 class CacheMixin(object):
     __all_objects = defaultdict(dict)
 
     def __init__(self, key):
-        self.__all_objects[self.__class__][key] = weakref.ref(self)
+        self.__all_objects[self.__class__][key] = self
 
     @classmethod
     def get(cls, key):
         if key in cls.__all_objects[cls]:
-            object_ = cls.__all_objects[cls][key]()
+            object_ = cls.__all_objects[cls][key]
             if object_ is not None:
                 return object_
         return cls(key)
@@ -160,7 +167,7 @@ class GameUser(CacheMixin):
         id_list = self.gameuser_data.get_id_list_of_shares(
             company_id=company_id
         )
-        shares = [Share(share_id) for share_id in id_list]
+        shares = [Share.get(share_id) for share_id in id_list]
         return shares
 
     def get_portfolio_size(self) -> float:
@@ -168,6 +175,13 @@ class GameUser(CacheMixin):
         for share in self.get_list_of_shares():
             partfolio_size += share.get_price()
         return partfolio_size
+
+    def get_total_value_of_shares(self, company_id: int = None) -> float:
+        total_value = sum(
+            [share.get_price()
+                for share in self.get_list_of_shares(company_id)]
+        )
+        return total_value
 
 
 class Game(CacheMixin):
@@ -213,6 +227,12 @@ class Game(CacheMixin):
     def get_game_sheet(self) -> GameSheet:
         return GameSheet(self.get_gs_link())
 
+    def get_admin_contact(self) -> str:
+        return self.game_data.get_admin_contact()
+
+    def get_chart_link(self) -> str:
+        return self.game_data.get_chart_link()
+
     def change_name(self, new_name: str) -> None:
         self.game_data.change_name(new_name)
         self.game_data = GameData(self.game_id)  # update data after changes
@@ -242,6 +262,9 @@ class Game(CacheMixin):
             self.open_market()
         else:
             self.close_market()
+
+    def get_max_percentage(self) -> float:
+        return self.game_data.get_max_percentage()
 
     def add_gameuser(self, tg_id: int) -> GameUser:
         gameuser_id = self.game_data.add_gameuser(tg_id)
@@ -326,8 +349,19 @@ class Game(CacheMixin):
         """
         sum_of_deal = company.get_price() * shares_number
         if sum_of_deal > buyer.get_cash():
-            raise Exception(
+            raise NotEnoughMoney(
                 f'GameUser { buyer.gameuser_id } doesnt have enough money')
+
+        full_size = buyer.get_portfolio_size()
+        company_in_partfolio = \
+            buyer.get_total_value_of_shares(company.get_id())
+        max_persentage = self.get_max_percentage() / 100
+        persentage_after_deal = \
+            (company_in_partfolio + sum_of_deal) / full_size
+        if persentage_after_deal > max_persentage:
+            raise DealIllegal(
+                f'GameUser { buyer.gameuser_id } wont to many')
+
         new_cash = buyer.get_cash() - sum_of_deal
         buyer.change_cash(
             new_cash=round(new_cash, 2)
@@ -350,8 +384,17 @@ class Game(CacheMixin):
             self,
             seller: GameUser,
             company: Company,
-            shares_number: int) -> None:
+            shares_number: int) -> int:
+        """продажа акций
 
+        Args:
+            seller (GameUser):
+            company (Company):
+            shares_number (int):
+
+        Returns:
+            int: реальное количество проданных акций
+        """
         shares_list = seller.get_list_of_shares(company.get_id())
         if shares_number > len(shares_list):
             shares_number = len(shares_list)
@@ -371,7 +414,7 @@ class Game(CacheMixin):
             company_id=company.get_id(),
             number_of_shares=shares_number
         )
-        return shares_list
+        return shares_number
 
     def get_list_of_companyes(self) -> list:
         id_list = self.game_data.get_list_of_company_ids()
