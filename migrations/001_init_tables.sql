@@ -2,7 +2,7 @@ DROP TABLE IF EXISTS game, tg_user, company, game_user, share, superadmin, compa
 DROP TYPE IF EXISTS deal_id;
 
 CREATE TABLE tg_user (
-        tg_id int PRIMARY KEY,
+        tg_id int8 PRIMARY KEY,
         username varchar(255) NOT NULL
 );
 
