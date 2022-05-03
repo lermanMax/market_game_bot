@@ -17,9 +17,10 @@ class MarketBotData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (tg_id, tg_username)
-            insert_script = '''INSERT INTO tg_user (tg_id, username) VALUES (%s, %s)
-                            ON CONFLICT (tg_id)
-                            DO UPDATE SET username = Excluded.username;'''
+            insert_script = '''INSERT INTO tg_user (tg_id, username)
+                                VALUES (%s, %s)
+                                ON CONFLICT (tg_id)
+                                DO UPDATE SET username = Excluded.username;'''
             cursor.execute(insert_script, insert_values)
         connection.commit()
         connection.close()
@@ -39,8 +40,10 @@ class MarketBotData:
     def get_active_gameuser_id(tg_id: int) -> int:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
-            select_script = '''SELECT game_user.gameuser_id FROM game_user WHERE game_user.tg_id = %s
-                            AND game_user.is_active = TRUE;'''
+            select_script = '''SELECT game_user.gameuser_id
+                                FROM game_user
+                                WHERE game_user.tg_id = %s
+                                AND game_user.is_active = TRUE;'''
             cursor.execute(select_script, (tg_id,))
             active_gameuser, = cursor.fetchone()
         connection.commit()
@@ -82,7 +85,9 @@ class TgUserData:
 
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
-            select_script = '''SELECT tg_user.username FROM tg_user WHERE tg_id = %s;'''
+            select_script = '''SELECT tg_user.username
+                                FROM tg_user
+                                WHERE tg_id = %s;'''
             cursor.execute(select_script, (tg_id,))
             select_username, = cursor.fetchone()
         connection.commit()
@@ -98,13 +103,14 @@ class TgUserData:
 
 
 class SuperAdminData:
-    # python date <=> sql date согласовываются или нет? python time <=> sql time ?
     def __init__(self, admin_id: int):
         self.admin_id = admin_id
 
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
-            select_script = '''SELECT superadmin.tg_id FROM superadmin WHERE admin_id = %s;'''
+            select_script = '''SELECT superadmin.tg_id
+                                FROM superadmin 
+                                WHERE admin_id = %s;'''
             cursor.execute(select_script, (admin_id,))
             select_tg_id, = cursor.fetchone()
         connection.commit()
@@ -116,7 +122,8 @@ class SuperAdminData:
     def create_new_game() -> int:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
-            insert_script = '''INSERT INTO game (game_name) VALUES (%s) RETURNING game_id;'''
+            insert_script = '''INSERT INTO game (game_name)
+                                VALUES (%s) RETURNING game_id;'''
             cursor.execute(insert_script, ('new game',))
             select_game_id, = cursor.fetchone()
         connection.commit()
@@ -187,7 +194,9 @@ class GameUserData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (new_first_name, self.gameuser_id)
-            update_script = '''UPDATE game_user SET first_name = %s WHERE gameuser_id = %s;'''
+            update_script = '''UPDATE game_user
+                                SET first_name = %s
+                                WHERE gameuser_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -196,7 +205,9 @@ class GameUserData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (new_last_name, self.gameuser_id)
-            update_script = '''UPDATE game_user SET last_name = %s WHERE gameuser_id = %s;'''
+            update_script = '''UPDATE game_user
+                                SET last_name = %s
+                                WHERE gameuser_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -205,7 +216,9 @@ class GameUserData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (new_nickname, self.gameuser_id)
-            update_script = '''UPDATE game_user SET nickname = %s WHERE gameuser_id = %s;'''
+            update_script = '''UPDATE game_user
+                                SET nickname = %s
+                                WHERE gameuser_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -214,7 +227,9 @@ class GameUserData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (new_cash, self.gameuser_id)
-            update_script = '''UPDATE game_user SET cash = %s WHERE gameuser_id = %s;'''
+            update_script = '''UPDATE game_user
+                                SET cash = %s 
+                                WHERE gameuser_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -268,7 +283,7 @@ class GameUserData:
                 select_script = '''
                     SELECT share.share_id FROM share
                     WHERE share.owner = %s;'''
-                values = (self.gameuser_id, )
+                values = (self.gameuser_id,)
             cursor.execute(select_script, values)
             id_list = cursor.fetchall()
         connection.commit()
@@ -339,7 +354,9 @@ class CompanyData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (new_price, self.company_id)
-            update_script = '''UPDATE company SET price = %s WHERE company_id = %s;'''
+            update_script = '''UPDATE company
+                                SET price = %s
+                                WHERE company_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -348,7 +365,9 @@ class CompanyData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (new_effect, self.company_id)
-            update_script = '''UPDATE company SET effect = %s WHERE company_id = %s;'''
+            update_script = '''UPDATE company 
+                                SET effect = %s
+                                WHERE company_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -466,7 +485,9 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (game_key, self.game_id)
-            update_script = '''UPDATE game SET game_key = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game
+                                SET game_key = %s
+                                WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -475,7 +496,9 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (new_name, self.game_id)
-            update_script = '''UPDATE game SET game_name = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game 
+                                SET game_name = %s 
+                                WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -484,7 +507,9 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (gs_link, self.game_id)
-            update_script = '''UPDATE game SET gs_link = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game 
+                                SET gs_link = %s 
+                                WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -493,7 +518,9 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (True, self.game_id)
-            update_script = '''UPDATE game SET is_market_open = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game 
+                                SET is_market_open = %s 
+                                WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -502,7 +529,9 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (False, self.game_id)
-            update_script = '''UPDATE game SET is_market_open = %s WHERE game_id = %s;'''
+            update_script = '''UPDATE game 
+                                SET is_market_open = %s 
+                                WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
         connection.close()
@@ -555,7 +584,9 @@ class GameData:
     def get_list_of_company_ids(self) -> list:
         connection = psycopg2.connect(**db_config)
         with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
-            select_script = '''SELECT company.company_id FROM company WHERE company.game = %s;'''
+            select_script = '''SELECT company.company_id 
+                                FROM company 
+                                WHERE company.game = %s;'''
             cursor.execute(select_script, (self.game_id,))
             id_list = cursor.fetchall()
         connection.commit()
@@ -606,7 +637,9 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (company_id, owner_gameuser_id)
-            insert_script = '''INSERT INTO share (company, owner) VALUES (%s, %s) RETURNING share_id;'''
+            insert_script = '''INSERT INTO share (company, owner) 
+                                VALUES (%s, %s) 
+                                RETURNING share_id;'''
             cursor.execute(insert_script, insert_values)
             select_share_id, = cursor.fetchone()
         connection.commit()
@@ -632,7 +665,8 @@ class GameData:
                 company_id, number_of_shares)
             insert_script = '''INSERT INTO transactions (
                             date_deal, subject_deal, type_deal,
-                            company_id, number_of_shares) VALUES (%s, %s, %s, %s, %s);'''
+                            company_id, number_of_shares) 
+                            VALUES (%s, %s, %s, %s, %s);'''
             cursor.execute(insert_script, insert_values)
         connection.commit()
         connection.close()
@@ -643,7 +677,8 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
             insert_values = (date_deal, type_deal, company_id)
-            select_script = '''SELECT transaction_id, date_deal, subject_deal, type_deal, company_id, number_of_shares
+            select_script = '''SELECT transaction_id, date_deal, subject_deal, 
+                                type_deal, company_id, number_of_shares
                                 FROM transactions
                                 WHERE date_deal = %s
                                 AND type_deal = %s
@@ -672,7 +707,9 @@ class GameData:
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
             insert_values = (company_id, date_entry, price)
-            insert_script = '''INSERT INTO company_history (company, date_entry, price) VALUES (%s, %s, %s);'''
+            insert_script = '''INSERT INTO company_history (company,
+                                date_entry, price) 
+                                VALUES (%s, %s, %s);'''
             cursor.execute(insert_script, insert_values)
         connection.commit()
         connection.close()
@@ -684,7 +721,9 @@ class ShareData:
 
         connection = psycopg2.connect(**db_config)
         with connection.cursor() as cursor:
-            select_script = '''SELECT share.company, share.owner FROM share WHERE share_id = %s;'''
+            select_script = '''SELECT share.company, share.owner 
+                                FROM share 
+                                WHERE share_id = %s;'''
             cursor.execute(select_script, (share_id,))
             select_company, select_owner = cursor.fetchone()
         connection.commit()
