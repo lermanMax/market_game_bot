@@ -137,7 +137,7 @@ class GameSheet():
         """Получить дату и значение переменной is_market_open.
 
         Returns:
-            tuple: (date: str, is_market_open: str)
+            tuple: (date_now: date, bool_: bool)
         """
         worksheet = self.get_worksheet(TIMETABLE_WS)
 
@@ -181,7 +181,7 @@ class GameSheet():
         var_name_cell = worksheet.find(ticker, matchEntireCell=True)[0]
         var_address = var_name_cell.address + (0, 1)
         var_cell = worksheet.cell(var_address)
-        effect = var_cell.value
+        effect = int(var_cell.value)
         return effect
 
     def add_trading_volume(
@@ -192,10 +192,7 @@ class GameSheet():
             bought: int):
         worksheet = self.get_worksheet(TRADING_VOLUME_WS)
         values_list = [
-            date,
-            ticker,
-            sold,
-            bought
+            str(date), ticker, sold, bought
         ]
         worksheet.append_table(
             values=values_list,
@@ -212,9 +209,7 @@ class GameSheet():
             price: float):
         worksheet = self.get_worksheet(PRICES_WS)
         values_list = [
-            date,
-            ticker,
-            price
+            str(date), ticker, price
         ]
         worksheet.append_table(
             values=values_list,
@@ -229,11 +224,9 @@ class GameSheet():
             date: date,
             nickname: str,
             size: float):
-        worksheet = self.get_worksheet(PRICES_WS)
+        worksheet = self.get_worksheet(PORTFOLIO_WS)
         values_list = [
-            date,
-            nickname,
-            size
+            str(date), nickname, size
         ]
         worksheet.append_table(
             values=values_list,

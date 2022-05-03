@@ -294,10 +294,10 @@ class Game(CacheMixin):
         if self.get_game_sheet().is_base_values_ready():
             try:
                 self.load_base_value()
-                log.info('values was loaded')
+                log.info(f'values for game {self.game_id} was loaded')
                 return True
             except Exception as e:
-                log.error(f'values_not_correct: { e }')
+                log.error(f'values_not_correct game {self.game_id}: { e }')
                 return False
         else:
             log.info('values_not_ready')
@@ -446,7 +446,7 @@ class Game(CacheMixin):
                 [tr['number_of_shares'] for tr in buy_transactions])
 
             old_effect = company.get_effect()
-            new_effect = self.game_sheet.get_effect(
+            new_effect = self.get_game_sheet().get_effect(
                 ticker=company.get_ticker()
             )
 
@@ -463,7 +463,7 @@ class Game(CacheMixin):
             company.change_price(new_price=round(new_price, 2))
             self.game_data.add_company_history(
                 company_id=company.get_id(),
-                date=self.get_today(),
+                date_entry=self.get_today(),
                 price=company.get_price()
             )
         return
@@ -488,7 +488,7 @@ class Game(CacheMixin):
             number_of_shares_bought = sum(
                 [tr['number_of_shares'] for tr in buy_transactions])
 
-            self.game_sheet.add_trading_volume(
+            self.get_game_sheet().add_trading_volume(
                 date=self.get_today(),
                 ticker=company.get_ticker(),
                 sold=number_of_shares_sold,
@@ -500,26 +500,29 @@ class Game(CacheMixin):
         companyes_list = self.get_list_of_companyes()
 
         for company in companyes_list:
-            self.game_sheet.add_company_price(
+            self.get_game_sheet().add_company_price(
                 date=self.get_today(),
                 ticker=company.get_ticker(),
-                price=company.get_price
+                price=company.get_price()
             )
         return
 
     def get_list_of_gameusers(self) -> list:
-        id_list = self.game_data.get_gamusers_id()
+        id_list = self.game_data.get_gameuser_ids()
         gameusers = [GameUser.get(tg_id) for tg_id in id_list]
         return gameusers
 
     def update_gs_portfolios(self) -> None:
         gamers = self.get_list_of_gameusers()
         for gameuser in gamers:
-            self.game_sheet.add_portfolio(
+            self.get_game_sheet().add_portfolio(
                 date=self.get_today(),
                 nickname=gameuser.get_nickname(),
-                patfolio_size=gameuser.get_portfolio_size()
+                size=gameuser.get_portfolio_size()
             )
+
+    def job_before_open(self):
+        pass
 
 
 class Company(CacheMixin):

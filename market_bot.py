@@ -138,6 +138,10 @@ async def new_game_command(message: types.Message, state: FSMContext):
     )
 
 
+def market_schedule():
+    schedule.every().day.at('22:30').do()
+
+
 def load_base_value_if_its_ready(game: Game, admin_id: int):
     def job():
         if game.load_base_value_if_its_ready():
@@ -415,12 +419,17 @@ async def send_gameuser_chart_link(message: types.Message, gameuser: GameUser):
     game = gameuser.get_game()
 
     text = (
-        f'Ссылка на графики: { game.get_chart_link() }'
+        'Здесть публикуются ссылки на графики и статистику по рынку'
     )
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(types.InlineKeyboardButton(
+        'Посмотреть статистику',
+        url=f'{ game.get_chart_link() }'
+    ))
 
     await message.answer(
         text=text,
-        reply_markup=get_gameuser_keyboard()
+        reply_markup=keyboard
     )
 
 
