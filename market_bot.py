@@ -29,12 +29,44 @@ button_cb = callback_data.CallbackData(
 
 # Start the background thread of schedule
 stop_run_continuously = run_continuously(interval=20)
-waiting_key_games = {}
 
 # Initialize business logic
 market_bot = MarketBot()
 
 
+#  -------------------------------------------------------------- РАСПИСАНИЕ
+def create_market_schedule(game: Game):
+    log.info(f'create_market_schedule for game: { game.game_id }')
+    open_time = game.get_open_time_in_server_tz()
+    open_time_str = open_time.strftime("%H:%M")
+
+    def open_job():
+        if game.game_is_ended():
+            return schedule.CancelJob
+        game.job_before_open()
+    schedule.every().day.at(open_time_str).do(open_job)
+
+    close_time = game.get_close_time_in_server_tz()
+    close_time_str = close_time.strftime("%H:%M")
+
+    def close_job():
+        if game.game_is_ended():
+            return schedule.CancelJob
+        game.job_after_close()
+    schedule.every().day.at(close_time_str).do(close_job)
+
+
+def check_games_and_create_schedule():
+    for game in market_bot.get_games():
+        if not game.game_is_ended():
+            create_market_schedule(game)
+
+
+# Check after reboot
+check_games_and_create_schedule()
+
+
+#  ---------------------------------------------------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 def get_text_from(path):
     with open(path, 'r') as file:
         one_string = ''
@@ -59,7 +91,7 @@ async def start_command(message: types.Message, state: FSMContext):
     )
     await message.answer(
         get_text_from('./text_of_questions/instruction.txt'),
-        reply_markup=get_empty_keyboard())
+        reply_markup=types.ReplyKeyboardRemove())
     await new_gameuser_command(message, state)
 
 
@@ -138,16 +170,12 @@ async def new_game_command(message: types.Message, state: FSMContext):
     )
 
 
-def market_schedule():
-    schedule.every().day.at('22:30').do()
-
-
 def load_base_value_if_its_ready(game: Game, admin_id: int):
     def job():
         if game.load_base_value_if_its_ready():
             log.info(f'base values soccesful loaded in game: { game.game_id }')
             game.load_companes_from_sheet()
-            game.open_market()
+            create_market_schedule(game)
             return schedule.CancelJob
     return job
 

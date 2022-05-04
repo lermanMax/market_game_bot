@@ -8,7 +8,7 @@ import logging
 from gs_module import GameSheet
 from db_managing import CompanyData, GameData, GameUserData, MarketBotData, \
     ShareData, SuperAdminData, TgUserData
-# from config import TIMEZONE_SERVER
+from config import TIMEZONE_SERVER
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -72,6 +72,13 @@ class MarketBot():
             return game
         else:
             return None
+
+    def get_games(self) -> list:
+        result = [
+            Game.get(game_id)
+            for game_id in self.market_bot_data.get_game_ids()
+        ]
+        return result
 
     def get_active_gameuser_id_for(self, tg_id: int) -> int:
         return self.market_bot_data.get_active_gameuser_id(tg_id)
@@ -205,21 +212,64 @@ class Game(CacheMixin):
     def get_buy_factor(self) -> float:
         return self.game_data.get_buy_factor()
 
-    def get_timezone(self) -> float:
+    def get_timezone(self) -> timezone:
         return timezone(timedelta(hours=self.game_data.get_timezone()))
 
     def get_today(self) -> date:
         today = datetime.now(self.get_timezone()).date()
         return today
 
-    def get_time_now(self) -> time:
-        time_now = datetime.now(self.get_timezone).time()
+    def get_time_now(self) -> datetime:
+        time_now = datetime.now(self.get_timezone)
         return time_now
 
-    def get_time_for_open_market(self) -> time:
-        # server_tz = timezone(timedelta(hours=TIMEZONE_SERVER))
-        # open_time = self.game_data.get_open_time()
-        pass
+    def get_gametime_in_sever_timezone(self, game_time: time) -> time:
+        server_tz = TIMEZONE_SERVER
+        game_tz = self.game_data.get_timezone()
+        hour_in_server_tz = game_time.hour - game_tz + server_tz
+        if hour_in_server_tz < 0:
+            hour_in_server_tz = 23 + hour_in_server_tz
+        elif hour_in_server_tz > 23:
+            hour_in_server_tz = hour_in_server_tz - 23
+
+        time_in_server_tz = time(
+            hour=hour_in_server_tz,
+            minute=game_time.minute
+        )
+        return time_in_server_tz
+
+    def get_open_time_in_server_tz(self) -> time:
+        open_time = self.game_data.get_open_time()
+        server_time = self.get_gametime_in_sever_timezone(open_time)
+        return server_time
+
+    def get_close_time_in_server_tz(self) -> time:
+        close_time = self.game_data.get_close_time()
+        server_time = self.get_gametime_in_sever_timezone(close_time)
+        return server_time
+
+    def game_is_going(self) -> bool:
+        start_day = self.game_data.get_start_day()
+        end_day = self.game_data.get_end_day()
+        if start_day <= self.get_today() <= end_day:
+            return True
+        else:
+            return False
+
+    def game_is_ended(self) -> bool:
+        """Проверяет, закончилась ли игра.
+        Если дата конца отсутствует, то возвращает True
+
+        Returns:
+            bool: _description_
+        """
+        end_day = self.game_data.get_end_day()
+        if not end_day:
+            return True
+        if self.get_today() > end_day:
+            return True
+        else:
+            return False
 
     def get_gs_link(self) -> str:
         return self.game_data.get_gs_link()
@@ -251,17 +301,23 @@ class Game(CacheMixin):
         return self.game_data.is_market_open()
 
     def open_market(self):
+        log.info(f'Open market game: {self.game_id}')
         self.game_data.open_market()
 
     def close_market(self):
+        log.info(f'Close market game: {self.game_id}')
         self.game_data.close_market()
 
-    def update_is_market_open(self) -> None:
-        date_now, is_open = self.game_sheet.get_date_and_bool_from_timetable()
+    def update_is_market_open(self) -> bool:
+        """Проверяет должна ли сегодня открыться биржа, и открывает."""
+        date_now, is_open = \
+            self.get_game_sheet().get_date_and_bool_from_timetable()
         if (date_now == self.get_today()) and is_open:
             self.open_market()
+            return True
         else:
             self.close_market()
+            return False
 
     def get_max_percentage(self) -> float:
         return self.game_data.get_max_percentage()
@@ -522,7 +578,14 @@ class Game(CacheMixin):
             )
 
     def job_before_open(self):
-        pass
+        self.update_is_market_open()
+
+    def job_after_close(self):
+        self.close_market()
+        self.update_prices()
+        self.update_gs_trading_volume()
+        self.update_gs_company_prices()
+        self.update_gs_portfolios()
 
 
 class Company(CacheMixin):

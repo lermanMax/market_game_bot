@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from pygsheets import authorize, Worksheet
 
 from config import GSHEET_SERVICE_FILE
@@ -6,7 +6,7 @@ from config import GSHEET_SERVICE_FILE
 BASE_WS = 'База'
 QA_WS = 'ЧаВо'
 TIMETABLE_WS = 'Режим работы биржи'
-EFFECT_WS = 'Эффекты'
+EFFECT_WS = 'Команды'
 GAMEUSERS_WS = 'Регистрации'
 TRADING_VOLUME_WS = 'Объем торгов'
 PRICES_WS = 'Цены компаний'
@@ -144,7 +144,7 @@ class GameSheet():
         date_name_cell = worksheet.find('today_date', matchEntireCell=True)[0]
         date_address = date_name_cell.address + (0, 1)
         date_cell = worksheet.cell(date_address)
-        date_now = date(date_cell.value)
+        date_now = datetime.strptime(date_cell.value, '%d.%m.%Y').date()
 
         bool_name_cell = worksheet.find(
             'is_market_open',
@@ -192,7 +192,7 @@ class GameSheet():
             bought: int):
         worksheet = self.get_worksheet(TRADING_VOLUME_WS)
         values_list = [
-            str(date), ticker, sold, bought
+            str(date), ticker, bought, sold
         ]
         worksheet.append_table(
             values=values_list,
