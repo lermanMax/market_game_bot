@@ -471,9 +471,19 @@ async def send_gameuser_help(message: types.Message, gameuser: GameUser):
         'Инструкция как нажимать / куда покупать'
         f'\nСсылка на администратора: { game.get_admin_contact() }'
     )
-
     await message.answer(
         text=text,
+        reply_markup=get_gameuser_keyboard()
+    )
+
+    FAQ_text = 'Часто задаваемые вопросы:\n'
+    for QA_dict in game.get_FAQ():
+        FAQ_text += (
+            f"\n<b>{ QA_dict['question'] }</b>"
+            f"\n{ QA_dict['answer'] }"
+        )
+    await message.answer(
+        text=FAQ_text,
         reply_markup=get_gameuser_keyboard()
     )
 
@@ -603,11 +613,11 @@ async def number_of_shares(message: types.Message, state: FSMContext):
         number = int(message.text)
         if not number > 0:
             await message.answer(
-                text='Введите целое число больше нуля:')
+                text='Введите целое число больше нуля')
             return
     except Exception:
         await message.answer(
-            text='Введите целое число больше нуля:')
+            text='Введите целое число больше нуля')
         return
     state_data = await state.get_data()
 

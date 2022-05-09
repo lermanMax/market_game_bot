@@ -133,6 +133,33 @@ class GameSheet():
             )
         return result
 
+    def get_FAQ(self) -> list:
+        """return list of dicts with qustions and answers
+
+        Returns:
+            list: [
+                {
+                    'question': row[0],
+                    'answer': row[1]
+                },
+                {...},
+            ]
+        """
+        worksheet = self.get_worksheet(QA_WS)
+        result = []
+        matrix = worksheet.get_values(
+            start='A3',
+            end='B1000',
+        )
+        for row in matrix:
+            result.append(
+                {
+                    'question': row[0],
+                    'answer': row[1]
+                }
+            )
+        return result
+
     def get_date_and_bool_from_timetable(self) -> tuple:
         """Получить дату и значение переменной is_market_open.
 

@@ -577,6 +577,9 @@ class Game(CacheMixin):
                 size=gameuser.get_portfolio_size()
             )
 
+    def get_FAQ(self) -> list:
+        return self.get_game_sheet().get_FAQ()
+
     def job_before_open(self):
         self.update_is_market_open()
 
