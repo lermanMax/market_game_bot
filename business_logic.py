@@ -181,7 +181,7 @@ class GameUser(CacheMixin):
         partfolio_size = self.get_cash()
         for share in self.get_list_of_shares():
             partfolio_size += share.get_price()
-        return partfolio_size
+        return round(partfolio_size, 2)
 
     def get_total_value_of_shares(self, company_id: int = None) -> float:
         total_value = sum(
@@ -321,6 +321,16 @@ class Game(CacheMixin):
 
     def get_max_percentage(self) -> float:
         return self.game_data.get_max_percentage()
+
+    def get_gameuser_tg_ids(self) -> list:
+        tg_ids = self.game_data.get_gameuser_tg_ids()
+        return tg_ids
+
+    def gameuser_in_game(self, tg_id: int) -> bool:
+        if tg_id in self.get_gameuser_tg_ids():
+            return True
+        else:
+            return False
 
     def add_gameuser(self, tg_id: int) -> GameUser:
         gameuser_id = self.game_data.add_gameuser(tg_id)

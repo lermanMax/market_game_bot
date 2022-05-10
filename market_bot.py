@@ -1,4 +1,3 @@
-from email.message import Message
 import logging
 from random import randrange
 import typing
@@ -229,7 +228,7 @@ async def new_gameuser_command(message: types.Message, state: FSMContext):
     content_types=types.message.ContentType.TEXT,
     state=NewGameUser.waiting_game_key)
 async def gameuser_gamekey(message: types.Message, state: FSMContext):
-    log.info('new_gs_link from: %r', message.from_user.id)
+    log.info('gameuser_gamekey from: %r', message.from_user.id)
     game = market_bot.get_game_by_game_key(
         game_key=message.text
     )
@@ -240,11 +239,17 @@ async def gameuser_gamekey(message: types.Message, state: FSMContext):
             get_text_from('./text_of_questions/game_key_wrong.txt'))
         return
 
-    gameuser = game.add_gameuser(tg_id=message.from_user.id)
-    gameuser.activate()
-    await NewGameUser.next()
-    await message.answer(
-            get_text_from('./text_of_questions/game_key_correct.txt'))
+    if game.gameuser_in_game(tg_id=message.from_user.id):
+        log.info('gameuser already exist: %r', message.from_user.id)
+        await state.finish()
+        await message.answer(
+            get_text_from('./text_of_questions/gameuser_in_game.txt'))
+    else:
+        gameuser = game.add_gameuser(tg_id=message.from_user.id)
+        gameuser.activate()
+        await NewGameUser.next()
+        await message.answer(
+                get_text_from('./text_of_questions/game_key_correct.txt'))
 
 
 @dp.message_handler(
@@ -320,8 +325,7 @@ gameuser_buttons_list = [
     market_button_word,
     portfolio_button_word,
     chart_button_word,
-    how_to_use_button_word,
-    update_button
+    how_to_use_button_word
 ]
 
 
@@ -476,10 +480,10 @@ async def send_gameuser_help(message: types.Message, gameuser: GameUser):
         reply_markup=get_gameuser_keyboard()
     )
 
-    FAQ_text = 'Часто задаваемые вопросы:\n'
+    FAQ_text = 'Часто задаваемые вопросы:'
     for QA_dict in game.get_FAQ():
         FAQ_text += (
-            f"\n<b>{ QA_dict['question'] }</b>"
+            f"\n\n<b>{ QA_dict['question'] }</b>"
             f"\n{ QA_dict['answer'] }"
         )
     await message.answer(
@@ -584,7 +588,7 @@ async def callback_market_deal(
     await state.update_data(message_id=msg.message_id)
 
 
-async def pashalka(message: Message):
+async def pashalka(message: types.Message):
     if randrange(0, 21, 1) == 20:
         await message.answer(text='ГАЛЯ, отмена!')
 

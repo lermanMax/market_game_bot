@@ -571,6 +571,18 @@ class GameData:
         connection.close()
         return [id_tuple[0] for id_tuple in id_list]
 
+    def get_gameuser_tg_ids(self) -> list:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
+            select_script = '''
+                SELECT game_user.tg_id
+                FROM game_user WHERE game_user.game = %s;'''
+            cursor.execute(select_script, (self._game_id,))
+            id_list = cursor.fetchall()
+        connection.commit()
+        connection.close()
+        return [id_tuple[0] for id_tuple in id_list]
+
     def add_company(
             self,
             company_name: str,

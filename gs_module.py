@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from time import sleep
 from pygsheets import authorize, Worksheet
 
 from config import GSHEET_SERVICE_FILE
@@ -209,6 +210,7 @@ class GameSheet():
         var_address = var_name_cell.address + (0, 1)
         var_cell = worksheet.cell(var_address)
         effect = int(var_cell.value)
+        sleep(0.25)
         return effect
 
     def add_trading_volume(
@@ -228,6 +230,7 @@ class GameSheet():
             dimension='ROWS',
             overwrite=False
         )
+        sleep(0.25)
 
     def add_company_price(
             self,
@@ -245,6 +248,7 @@ class GameSheet():
             dimension='ROWS',
             overwrite=False
         )
+        sleep(0.25)
 
     def add_portfolio(
             self,
@@ -262,3 +266,4 @@ class GameSheet():
             dimension='ROWS',
             overwrite=False
         )
+        sleep(0.25)
