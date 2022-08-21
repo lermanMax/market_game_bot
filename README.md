@@ -1,8 +1,8 @@
 # market_game_bot
 
-Игра имитирующая работу биржи ценных бумаг.
+The game simulates the operation of a stock exchange
 
-Функционал:
-* Игроки могут покупать и продавать ценные бумаги. 
-* Ежедневно цены меняются в зависимости от спроса и предложения созданного игроками
-* Вся статистика выгружается в google sheets
+Functionality:
+* Players can buy & sell securities
+* Prices change daily depending on the supply and demand created by the players
+* The game statistics are uploaded to Google Sheets
