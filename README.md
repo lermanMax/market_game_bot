@@ -1,4 +1,4 @@
-# market_game_bot
+# Market Game Bot
 
 The game simulates the operation of a stock exchange
 
