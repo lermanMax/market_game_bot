@@ -297,9 +297,14 @@ async def gameuser_nickname(message: types.Message, state: FSMContext):
             new_nickname=message.text
         )
         await state.finish()
+        text = (
+            f'{gameuser.get_first_name()}, я успешно зарегистрировал ' 
+            f'тебя в игре {gameuser.get_game().game_id} '
+            f'под ником {gameuser.get_nickname()}'
+        )
         keyboard = get_gameuser_keyboard()
         await message.answer(
-            get_text_from('./text_of_questions/nickname_correct.txt'),
+            text,
             reply_markup=keyboard
         )
         game = gameuser.get_game()
@@ -311,11 +316,11 @@ async def gameuser_nickname(message: types.Message, state: FSMContext):
 
 
 #  ---------------------------------------------------------- КЛАВИАТУРА ИГРОКА
-market_button_word = 'Посмотреть на рынок'
-portfolio_button_word = 'Мой портфель'
-chart_button_word = 'Графики/Статистика'
-how_to_use_button_word = 'Как пользоваться ботом?'
-update_button = 'Обновить'
+market_button_word = 'Рынок 🏛️'
+portfolio_button_word = 'Мой портфель 💼'
+chart_button_word = 'Информация и графики 📊'
+how_to_use_button_word = 'Как пользоваться ботом❓'
+update_button = 'Обновить 🔄'
 
 buy_button = 'Купить'
 sell_button = 'Продать'
@@ -383,13 +388,13 @@ async def send_market(message: types.Message, gameuser: GameUser):
 
     cash = gameuser.get_cash()
     if is_market_open:
-        market_closed = ''
+        market_closed = '\nРынок открыт'
     else:
         market_closed = '\n<b>Рынок закрыт</b>'
 
     text = (
         'Это список всех компаний.'
-        f'\nВаши свободные средства: { cash }'
+        f'\nВаш баланс: { cash }'
         f'{ market_closed }'
     )
     await message.answer(
@@ -472,7 +477,7 @@ async def send_gameuser_help(message: types.Message, gameuser: GameUser):
     game = gameuser.get_game()
 
     text = (
-        'Инструкция как нажимать / куда покупать'
+        get_text_from('./text_of_questions/instruction.txt')
         f'\nСсылка на администратора: { game.get_admin_contact() }'
     )
     await message.answer(
@@ -556,10 +561,10 @@ async def callback_market_deal(
     company = Company.get(callback_data['data'])
     if callback_data['answer'] == buy_button:
         text = (
-            '<b>Введите число</b> акций'
+            '<b>Введи количество</b> акций'
             f' { company.get_name() } ({ company.get_ticker() })'
-            ' которое вы хотите купить?'
-            f'\nЦена за штуку: {company.get_price()}'
+            ' которое хочешь купить.'
+            f'\nСтоимость одной акции: {company.get_price()}'
             f'\nВаши свободные средства: { gameuser.get_cash() }'
         )
     elif callback_data['answer'] == sell_button:
@@ -573,11 +578,11 @@ async def callback_market_deal(
                 get_text_from('./text_of_questions/dont_have_shares.txt'))
             return
         text = (
-            '<b>Введите число</b> акций'
+            '<b>Введи количество</b> акций'
             f' { company.get_name() } ({ company.get_ticker() })'
-            ' которое вы хотите продать?'
-            f'\nЦена за штуку: {company.get_price()}'
-            f'\nУ вас в портфеле этих акций: { count }'
+            ' которое хочешь продать?'
+            f'\nСтоимость одной акции: {company.get_price()}'
+            f'\nВ портфеле этих акций: { count }'
         )
     await MarketDeal.waiting_number_shares.set()
     await query.answer()
@@ -617,11 +622,11 @@ async def number_of_shares(message: types.Message, state: FSMContext):
         number = int(message.text)
         if not number > 0:
             await message.answer(
-                text='Введите целое число больше нуля')
+                text=get_text_from('./text_of_questions/wrong_number.txt'))
             return
     except Exception:
         await message.answer(
-            text='Введите целое число больше нуля')
+            text=get_text_from('./text_of_questions/wrong_number.txt'))
         return
     state_data = await state.get_data()
 
@@ -642,7 +647,7 @@ async def number_of_shares(message: types.Message, state: FSMContext):
                 company=company,
                 shares_number=number
             )
-            text_was_sold = ''
+            text_was_sold = f'Успешная покупка {number} акций(я) компании'
         except NotEnoughMoney:
             await message.answer(
                 get_text_from(
@@ -650,8 +655,12 @@ async def number_of_shares(message: types.Message, state: FSMContext):
             return
         except DealIllegal:
             await message.answer(
-                get_text_from(
-                    './text_of_questions/you_want_to_many.txt'))
+                text=(
+                    'Твой портфель не будет удовлетворять условиям, '
+                    'заданным администратором игры: '
+                    '\nпосле покупки одна компания не может занимать больше'
+                    f'{ game.get_max_percentage() }% портфеля.'
+                ))
             return
     elif state_data['answer'] == sell_button:
         real_number = game.sell_deal(
@@ -659,7 +668,7 @@ async def number_of_shares(message: types.Message, state: FSMContext):
             company=company,
             shares_number=number
         )
-        text_was_sold = f'\nБыло продано: { real_number }'
+        text_was_sold = f'Успешно продано {real_number} акций(я) компании'
     await state.finish()
     count = len(
         gameuser.get_list_of_shares(
@@ -668,11 +677,10 @@ async def number_of_shares(message: types.Message, state: FSMContext):
     )
 
     text = (
-        'Торговая сделка успешно совершена.'
-        f'\n{ company.get_name() } ({ company.get_ticker() })'
-        f'{ text_was_sold }'
-        f'\nТеперь у вас в портфеле этих акций: { count }'
-        f'\nВаши свободные средства: { gameuser.get_cash() }'
+        f'{text_was_sold}'
+        f'{ company.get_name() } ({ company.get_ticker() }).'
+        f'\n\nТеперь в портфеле этих акций: { count }'
+        f'\nВаш баланс: { gameuser.get_cash() }'
     )
     await bot.delete_message(
         chat_id=message.from_user.id,
