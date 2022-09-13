@@ -655,8 +655,12 @@ async def number_of_shares(message: types.Message, state: FSMContext):
             return
         except DealIllegal:
             await message.answer(
-                get_text_from(
-                    './text_of_questions/you_want_to_many.txt'))
+                text=(
+                    'Твой портфель не будет удовлетворять условиям, '
+                    'заданным администратором игры: '
+                    '\nпосле покупки одна компания не может занимать больше'
+                    f'{ game.get_max_percentage() }% портфеля.'
+                ))
             return
     elif state_data['answer'] == sell_button:
         real_number = game.sell_deal(
