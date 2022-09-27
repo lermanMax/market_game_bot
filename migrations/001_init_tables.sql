@@ -3,7 +3,8 @@ DROP TYPE IF EXISTS deal_id;
 
 CREATE TABLE tg_user (
         tg_id int8 PRIMARY KEY,
-        username varchar(255) NOT NULL
+        username varchar(255) NOT NULL,
+        is_blocked bool NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE game (
@@ -17,6 +18,7 @@ CREATE TABLE game (
         open_time time,
         close_time time,
         is_market_open bool NOT NULL DEFAULT FALSE,
+        is_registration_open bool NOT NULL DEFAULT FALSE, 
         start_price int,
         start_cash int,
         max_percentage float8,

@@ -188,13 +188,15 @@ class GameSheet():
             last_name: str,
             first_name: str,
             nickname: str,
-            tg_username: str) -> None:
+            tg_username: str,
+            tg_id: int) -> None:
         worksheet = self.get_worksheet(GAMEUSERS_WS)
         values_list = [
             last_name,
             first_name,
             nickname,
-            tg_username
+            tg_username,
+            tg_id
         ]
         worksheet.append_table(
             values=values_list,

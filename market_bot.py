@@ -1,6 +1,7 @@
 import logging
 from random import randrange
-import typing
+from typing import List, Dict
+import time
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.utils import callback_data
@@ -12,7 +13,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from config import API_TOKEN, SUPERADMIN_PASS, BOT_MAILADDRESS
 from schedule_module import schedule, run_continuously
 from business_logic import Company, DealIllegal, Game, MarketBot, \
-    NotEnoughMoney, SuperAdmin, GameUser
+    NotEnoughMoney, SuperAdmin, GameUser, TgUser
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -74,6 +75,33 @@ def get_text_from(path):
     return one_string
 
 
+def make_inline_keyboard(question_name, answers, data=0):
+    """Возвращает клавиатуру для сообщений"""
+    if not answers:
+        return None
+
+    keyboard = types.InlineKeyboardMarkup()
+    row = []
+    for answer in answers:  # make a botton for every answer
+        cb_data = button_cb.new(
+            question_name=question_name,
+            answer=answer,
+            data=data)
+        row.append(types.InlineKeyboardButton(answer,
+                                              callback_data=cb_data))
+    if len(row) <= 2:
+        keyboard.row(*row)
+    else:
+        for button in row:
+            keyboard.row(button)
+
+    return keyboard
+
+
+def is_blocked(tg_id) -> bool:
+    return TgUser(tg_id).is_blocked()
+
+
 #  -------------------------------------------------------------- ВХОД ТГ ЮЗЕРА
 def get_empty_keyboard():
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -89,7 +117,7 @@ async def start_command(message: types.Message, state: FSMContext):
         tg_username=message.from_user.username
     )
     await message.answer(
-        get_text_from('./text_of_questions/instruction.txt'),
+        'Добро пожаловать!',
         reply_markup=types.ReplyKeyboardRemove())
     await new_gameuser_command(message, state)
 
@@ -100,9 +128,11 @@ async def send_help(message: types.Message, state: FSMContext):
     gameuser_id = market_bot.get_active_gameuser_id_for(message.from_user.id)
     await state.finish()
     if gameuser_id:
-        await message.answer(
-            get_text_from('./text_of_questions/help.txt'),
-            reply_markup=get_gameuser_keyboard())
+        gameuser = GameUser.get(gameuser_id)
+        await send_gameuser_help(
+            message=message,
+            gameuser=gameuser
+        )
     else:
         await message.answer(
             get_text_from('./text_of_questions/help.txt'),
@@ -130,6 +160,10 @@ async def superadmin_command(message: types.Message):
     else:
         await message.answer(
             "Вы пытаетесь войти в меню Суперадмина. Введите пароль:")
+        market_bot.add_tg_user(
+            tg_id=message.from_user.id,
+            tg_username=message.from_user.username
+        )
         await SuperAdminState.waiting_for_pass.set()
 
 
@@ -207,6 +241,107 @@ async def new_gs_link(message: types.Message, state: FSMContext):
         )
 
 
+#  ---------------------------------------------------------- УПРАВЛЕНИЕ ИГРАМИ
+delete_button = 'Удалить'
+stop_registration_button = 'Закрыть регистрацию'
+open_registration_button = 'Открыть регистрацию'
+
+
+def make_keyboard_for_game(game_id: int):
+    keyboard = make_inline_keyboard(
+        question_name='game',
+        answers=[
+            open_registration_button,
+            stop_registration_button,
+        ],
+        data=game_id
+    )
+    return keyboard
+
+
+@dp.message_handler(commands=['all_games'], state="*")
+async def all_game_command(message: types.Message, state: FSMContext):
+    log.info('all_game_command from: %r', message.from_user.id)
+    if message.from_user.id not in market_bot.get_superadmin_tg_ids():
+        return
+    await message.answer('Все игры:')
+    for game in market_bot.get_games():
+        keyboard = make_keyboard_for_game(game.game_id)
+        await message.answer(
+            text=(
+                f'Игра: {game.game_id} '
+                f'\nРегистрация: {game.is_registration_open()}'
+            ),
+            reply_markup=keyboard
+        )
+
+
+async def delete_game(message: types.Message, game_id: int):
+    log.info('delete_game from: %r', message.from_user.id)
+
+
+async def stop_registration_game(message: types.Message, game_id: int):
+    log.info('stop_registration_game from: %r', message.from_user.id)
+    Game(game_id).close_registration()
+
+
+async def open_registration_game(message: types.Message, game_id: int):
+    log.info('open_registration_game from: %r', message.from_user.id)
+    Game(game_id).open_registration()
+
+
+gameadmin_button_dict = {
+    delete_button: delete_game,
+    stop_registration_button: stop_registration_game,
+    open_registration_button: open_registration_game
+}
+
+
+@dp.callback_query_handler(
+    button_cb.filter(question_name=['game']),
+    state='*')
+async def superadmin_buttons(
+        query: types.CallbackQuery,
+        callback_data: Dict[str, str],
+        state: FSMContext):
+    log.info('Got this callback data: %r', callback_data)
+    if query.from_user.id not in market_bot.get_superadmin_tg_ids():
+        return
+
+    await gameadmin_button_dict[callback_data['answer']](
+        message=query.message,
+        game_id=callback_data['data']
+    )
+
+
+#  -------------------------------------------------------- УПРАВЛЕНИЕ ЮЗЕРАМИ
+@dp.message_handler(commands=['ban', 'justify'], state="*")
+async def ban_command(message: types.Message, state: FSMContext):
+    log.info('ban_command from: %r', message.from_user.id)
+    if message.from_user.id not in market_bot.get_superadmin_tg_ids():
+        return
+
+    words_command: List[str] = message.text.split(' ')
+    if len(words_command) > 2 or not words_command[-1].isdigit():
+        log.info('bad command: %r', message.from_user.id)
+        await message.reply('не верная команда')
+        return
+
+    command, tg_id = words_command
+    try:
+        user = TgUser(int(tg_id))
+    except Exception:
+        await message.reply('id не найден')
+        return
+
+    if command == '/ban':
+        user.ban()
+        await message.reply('забанено')
+    elif command == '/justify':
+        user.unban()
+        await message.reply('разбанено')
+
+
 #  ------------------------------------------------------------ СОЗДАНИЕ ИГРОКА
 class NewGameUser(StatesGroup):
     waiting_game_key = State()
@@ -229,6 +364,8 @@ async def new_gameuser_command(message: types.Message, state: FSMContext):
     state=NewGameUser.waiting_game_key)
 async def gameuser_gamekey(message: types.Message, state: FSMContext):
     log.info('gameuser_gamekey from: %r', message.from_user.id)
+    if is_blocked(message.from_user.id):
+        return
     game = market_bot.get_game_by_game_key(
         game_key=message.text
     )
@@ -237,6 +374,12 @@ async def gameuser_gamekey(message: types.Message, state: FSMContext):
         log.warning('wrong gamekey from: %r', message.from_user.id)
         await message.answer(
             get_text_from('./text_of_questions/game_key_wrong.txt'))
+        return
+
+    if not game.is_registration_open():
+        log.warning(f'registration closed: {game.game_id}')
+        await message.answer(
+            get_text_from('./text_of_questions/registration_closed.txt'))
         return
 
     if game.gameuser_in_game(tg_id=message.from_user.id):
@@ -298,7 +441,7 @@ async def gameuser_nickname(message: types.Message, state: FSMContext):
         )
         await state.finish()
         text = (
-            f'{gameuser.get_first_name()}, я успешно зарегистрировал ' 
+            f'{gameuser.get_first_name()}, я успешно зарегистрировал '
             f'тебя в игре {gameuser.get_game().game_id} '
             f'под ником {gameuser.get_nickname()}'
         )
@@ -309,11 +452,23 @@ async def gameuser_nickname(message: types.Message, state: FSMContext):
         )
         game = gameuser.get_game()
         game.add_gameuser_in_sheet(gameuser_id)
+        await start_guide(message)
     else:
         log.info('wrong gameuser_nickname from: %r', message.from_user.id)
         await message.answer(
             get_text_from('./text_of_questions/nickname_wrong.txt'))
 
+
+async def start_guide(message: types.Message):
+    log.info('start_guide from: %r', message.from_user.id)
+    await message.answer(
+            get_text_from('./text_of_questions/about_1.txt'))
+    time.sleep(3)
+    await message.answer(
+            get_text_from('./text_of_questions/about_2.txt'))
+    time.sleep(3)
+    await message.answer(
+            get_text_from('./text_of_questions/about_3.txt'))
 
 #  ---------------------------------------------------------- КЛАВИАТУРА ИГРОКА
 market_button_word = 'Рынок 🏛️'
@@ -338,29 +493,6 @@ def get_gameuser_keyboard():
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for name in gameuser_buttons_list:
         keyboard.add(types.KeyboardButton(name))
-    return keyboard
-
-
-def make_inline_keyboard(question_name, answers, data=0):
-    """Возвращает клавиатуру для сообщений"""
-    if not answers:
-        return None
-
-    keyboard = types.InlineKeyboardMarkup()
-    row = []
-    for answer in answers:  # make a botton for every answer
-        cb_data = button_cb.new(
-            question_name=question_name,
-            answer=answer,
-            data=data)
-        row.append(types.InlineKeyboardButton(answer,
-                                              callback_data=cb_data))
-    if len(row) <= 2:
-        keyboard.row(*row)
-    else:
-        for button in row:
-            keyboard.row(button)
-
     return keyboard
 
 
@@ -477,7 +609,7 @@ async def send_gameuser_help(message: types.Message, gameuser: GameUser):
     game = gameuser.get_game()
 
     text = (
-        get_text_from('./text_of_questions/instruction.txt')
+        f'{ get_text_from("./text_of_questions/instruction.txt") }'
         f'\nСсылка на администратора: { game.get_admin_contact() }'
     )
     await message.answer(
@@ -522,6 +654,8 @@ async def gameuser_keyboard(message: types.Message, state: FSMContext):
     Получаем нажатие кнопки из клавиатуры игрока
     """
     log.info('push gameuser_keyboard from: %r', message.from_user.id)
+    if is_blocked(message.from_user.id):
+        return
 
     gameuser_id = market_bot.get_active_gameuser_id_for(message.from_user.id)
     if gameuser_id:
@@ -545,9 +679,11 @@ class MarketDeal(StatesGroup):
     state='*')
 async def callback_market_deal(
         query: types.CallbackQuery,
-        callback_data: typing.Dict[str, str],
+        callback_data: Dict[str, str],
         state: FSMContext):
     log.info('Got this callback data: %r', callback_data)
+    if is_blocked(query.from_user.id):
+        return
 
     gameuser_id = market_bot.get_active_gameuser_id_for(query.from_user.id)
     gameuser = GameUser.get(gameuser_id)
@@ -603,9 +739,11 @@ async def pashalka(message: types.Message):
     state='*')
 async def callback_cancel_deal(
         query: types.CallbackQuery,
-        callback_data: typing.Dict[str, str],
+        callback_data: Dict[str, str],
         state: FSMContext):
     log.info('Got this callback data: %r', callback_data)
+    if is_blocked(query.from_user.id):
+        return
 
     if callback_data['answer'] == cancel_button:
         await pashalka(query.message)
@@ -618,6 +756,8 @@ async def callback_cancel_deal(
     state=MarketDeal.waiting_number_shares)
 async def number_of_shares(message: types.Message, state: FSMContext):
     log.info('number_of_shares from: %r', message.from_user.id)
+    if is_blocked(message.from_user.id):
+        return
     try:
         number = int(message.text)
         if not number > 0:
@@ -647,7 +787,7 @@ async def number_of_shares(message: types.Message, state: FSMContext):
                 company=company,
                 shares_number=number
             )
-            text_was_sold = f'Успешная покупка {number} акций(я) компании'
+            text_was_sold = f'Успешная покупка {number} акций(я) компании '
         except NotEnoughMoney:
             await message.answer(
                 get_text_from(
@@ -658,8 +798,9 @@ async def number_of_shares(message: types.Message, state: FSMContext):
                 text=(
                     'Твой портфель не будет удовлетворять условиям, '
                     'заданным администратором игры: '
-                    '\nпосле покупки одна компания не может занимать больше'
-                    f'{ game.get_max_percentage() }% портфеля.'
+                    'после покупки <b>одна компания не может занимать больше '
+                    f'{ game.get_max_percentage() }% портфеля.</b>'
+                    '\nУкажи другое число.'
                 ))
             return
     elif state_data['answer'] == sell_button:

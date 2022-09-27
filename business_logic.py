@@ -4,6 +4,7 @@ import string
 import random
 from datetime import date, timezone, timedelta, datetime, time
 import logging
+from typing import List
 
 from gs_module import GameSheet
 from db_managing import CompanyData, GameData, GameUserData, MarketBotData, \
@@ -73,7 +74,7 @@ class MarketBot():
         else:
             return None
 
-    def get_games(self) -> list:
+    def get_games(self) -> List[Game]:
         result = [
             Game.get(game_id)
             for game_id in self.market_bot_data.get_game_ids()
@@ -99,6 +100,17 @@ class TgUser(CacheMixin):
             return self.get_tg_id()
         else:
             return username
+
+    def is_blocked(self) -> bool:
+        return self.tg_data.is_blocked()
+
+    def ban(self):
+        log.info(f'ban: {self.tg_id}')
+        self.tg_data.block()
+
+    def unban(self):
+        log.info(f'unban: {self.tg_id}')
+        self.tg_data.unblock()
 
 
 class SuperAdmin(TgUser):
@@ -308,6 +320,17 @@ class Game(CacheMixin):
         log.info(f'Close market game: {self.game_id}')
         self.game_data.close_market()
 
+    def is_registration_open(self) -> bool:
+        return self.game_data.is_registration_open()
+
+    def open_registration(self):
+        log.info(f'Open registration game: {self.game_id}')
+        self.game_data.open_registration()
+
+    def close_registration(self):
+        log.info(f'Close registration game: {self.game_id}')
+        self.game_data.close_registration()
+
     def update_is_market_open(self) -> bool:
         """Проверяет должна ли сегодня открыться биржа, и открывает."""
         date_now, is_open = \
@@ -346,7 +369,8 @@ class Game(CacheMixin):
             last_name=gameuser.get_last_name(),
             first_name=gameuser.get_first_name(),
             nickname=gameuser.get_nickname(),
-            tg_username=TgUser.get(gameuser.get_tg_id()).get_username()
+            tg_username=TgUser.get(gameuser.get_tg_id()).get_username(),
+            tg_id=gameuser.get_tg_id()
         )
 
     def load_base_value(self) -> None:

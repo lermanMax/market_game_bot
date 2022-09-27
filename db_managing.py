@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import date, time
 
 import psycopg2
@@ -112,6 +113,40 @@ class TgUserData:
 
     def get_tg_username(self) -> str:
         return self._tg_username
+
+    def is_blocked(self) -> bool:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            select_script = '''
+                SELECT tg_user.is_blocked
+                FROM tg_user WHERE tg_id = %s;'''
+            cursor.execute(select_script, (self._tg_id,))
+            is_blocked, = cursor.fetchone()
+        connection.commit()
+        connection.close()
+        return is_blocked
+
+    def block(self) -> None:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            insert_values = (True, self._tg_id)
+            update_script = '''UPDATE tg_user
+                                SET is_blocked = %s
+                                WHERE tg_id = %s;'''
+            cursor.execute(update_script, insert_values)
+        connection.commit()
+        connection.close()
+
+    def unblock(self) -> None:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            insert_values = (False, self._tg_id)
+            update_script = '''UPDATE tg_user
+                                SET is_blocked = %s
+                                WHERE tg_id = %s;'''
+            cursor.execute(update_script, insert_values)
+        connection.commit()
+        connection.close()
 
 
 class SuperAdminData:
@@ -384,7 +419,7 @@ class CompanyData:
 
 
 class GameData:
-    def __init__(self, game_id: int):
+    def __init__(self, game_id: int) -> GameData:
         self._game_id = game_id
 
         connection = psycopg2.connect(**db_config)
@@ -470,6 +505,18 @@ class GameData:
         connection.close()
         return is_market_open
 
+    def is_registration_open(self) -> bool:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            select_script = '''
+                SELECT game.is_registration_open
+                FROM game WHERE game_id = %s;'''
+            cursor.execute(select_script, (self._game_id,))
+            is_registration_open, = cursor.fetchone()
+        connection.commit()
+        connection.close()
+        return is_registration_open
+
     def get_start_price(self) -> int:
         return self._start_price
 
@@ -541,6 +588,28 @@ class GameData:
             insert_values = (False, self._game_id)
             update_script = '''
                 UPDATE game SET is_market_open = %s
+                WHERE game_id = %s;'''
+            cursor.execute(update_script, insert_values)
+        connection.commit()
+        connection.close()
+
+    def open_registration(self) -> None:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            insert_values = (True, self._game_id)
+            update_script = '''UPDATE game
+                                SET is_registration_open = %s
+                                WHERE game_id = %s;'''
+            cursor.execute(update_script, insert_values)
+        connection.commit()
+        connection.close()
+
+    def close_registration(self) -> None:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            insert_values = (False, self._game_id)
+            update_script = '''
+                UPDATE game SET is_registration_open = %s
                 WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
