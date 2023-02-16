@@ -99,7 +99,7 @@ def make_inline_keyboard(question_name, answers, data=0):
 
 
 def is_blocked(tg_id) -> bool:
-    return TgUser(tg_id).is_blocked()
+    return TgUser.get(tg_id).is_blocked()
 
 
 #  -------------------------------------------------------------- ВХОД ТГ ЮЗЕРА
@@ -329,7 +329,7 @@ async def ban_command(message: types.Message, state: FSMContext):
 
     command, tg_id = words_command
     try:
-        user = TgUser(int(tg_id))
+        user = TgUser.get(int(tg_id))
     except Exception:
         await message.reply('id не найден')
         return
@@ -491,8 +491,14 @@ gameuser_buttons_list = [
 
 def get_gameuser_keyboard():
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for name in gameuser_buttons_list:
-        keyboard.add(types.KeyboardButton(name))
+    # for name in gameuser_buttons_list:
+    #     keyboard.add(types.KeyboardButton(name))
+    keyboard.add(
+        types.KeyboardButton(market_button_word),
+        types.KeyboardButton(portfolio_button_word)
+    )
+    keyboard.add(types.KeyboardButton(chart_button_word))
+    keyboard.add(types.KeyboardButton(how_to_use_button_word))
     return keyboard
 
 
@@ -533,7 +539,7 @@ async def send_market(message: types.Message, gameuser: GameUser):
         text=text,
         reply_markup=get_gameuser_keyboard()
     )
-    companes = game.get_list_of_companyes()
+    companes = game.get_list_of_actual_companyes()
     for company in companes:
         count = len(
             gameuser.get_list_of_shares(
@@ -695,6 +701,10 @@ async def callback_market_deal(
         return
 
     company = Company.get(callback_data['data'])
+    if company.get_price() == 0:
+        await query.message.answer(
+            get_text_from('./text_of_questions/company_was_liquidated.txt'))
+        return
     if callback_data['answer'] == buy_button:
         text = (
             '<b>Введи количество</b> акций'

@@ -43,7 +43,9 @@ class MarketBot():
     def __init__(self):
         self.market_bot_data = MarketBotData()
 
-    def add_tg_user(self, tg_id: int, tg_username: int) -> None:
+    def add_tg_user(self, tg_id: int, tg_username: str) -> None:
+        if not tg_username:
+            tg_username = 'none'
         self.market_bot_data.add_tg_user(
           tg_id=tg_id,
           tg_username=tg_username
@@ -506,13 +508,31 @@ class Game(CacheMixin):
         )
         return shares_number
 
-    def get_list_of_companyes(self) -> list:
+    def get_list_of_companyes(self) -> List[Company]:
         id_list = self.game_data.get_list_of_company_ids()
         list_of_comapnyes = [Company.get(company_id) for company_id in id_list]
         return list_of_comapnyes
 
-    def update_prices(self) -> None:
+    def get_list_of_actual_companyes(self) -> List[Company]:
+        list_of_companyes = [
+            company for company in self.get_list_of_companyes()
+            if company.get_price() != 0
+        ]
+        return list_of_companyes
+
+    def liquidation_companyes(self) -> None:
         companyes_list = self.get_list_of_companyes()
+
+        for company in companyes_list:
+            if company.get_price() == 0:
+                continue
+            if self.get_game_sheet().get_liquidation(
+                ticker=company.get_ticker()
+            ):
+                company.change_price(new_price=0)
+
+    def update_prices(self) -> None:
+        companyes_list = self.get_list_of_actual_companyes()
 
         for company in companyes_list:
             old_price = company.get_price()
@@ -551,6 +571,7 @@ class Game(CacheMixin):
             )
 
             company.change_price(new_price=round(new_price, 2))
+            company.change_effect(new_effect=new_effect)
             self.game_data.add_company_history(
                 company_id=company.get_id(),
                 date_entry=self.get_today(),
@@ -619,6 +640,7 @@ class Game(CacheMixin):
 
     def job_after_close(self):
         self.close_market()
+        self.liquidation_companyes()
         self.update_prices()
         self.update_gs_trading_volume()
         self.update_gs_company_prices()

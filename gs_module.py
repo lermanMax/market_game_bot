@@ -1,8 +1,13 @@
 from datetime import date, datetime
+import logging
 from time import sleep
 from pygsheets import authorize, Worksheet
 
 from config import GSHEET_SERVICE_FILE
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger('gs_module')
 
 BASE_WS = 'База'
 QA_WS = 'ЧаВо'
@@ -61,14 +66,25 @@ class GameSheet():
     def __init__(self, gs_link: str):
         self.gs_link = gs_link
 
+    def get_sheet(self):
+        did_conect = False
+        while not did_conect:
+            try:
+                client = authorize(service_file=GSHEET_SERVICE_FILE)
+                sheet = client.open_by_url(self.gs_link)
+                did_conect = True
+            except Exception:
+                log.error('google didnt get sheet')
+                pass
+
+        return sheet
+
     def get_title(self) -> str:
-        client = authorize(service_file=GSHEET_SERVICE_FILE)
-        sheet = client.open_by_url(self.gs_link)
+        sheet = self.get_sheet()
         return sheet.title
 
     def get_worksheet(self, ws_name: str) -> Worksheet:
-        client = authorize(service_file=GSHEET_SERVICE_FILE)
-        sheet = client.open_by_url(self.gs_link)
+        sheet = self.get_sheet()
         worksheet = sheet.worksheet_by_title(ws_name)
         return worksheet
 
@@ -214,6 +230,17 @@ class GameSheet():
         effect = int(var_cell.value)
         sleep(0.25)
         return effect
+
+    def get_liquidation(self, ticker: str) -> bool:
+        worksheet = self.get_worksheet(EFFECT_WS)
+        var_name_cell = worksheet.find(ticker, matchEntireCell=True)[0]
+        var_address = var_name_cell.address + (0, 2)
+        var_cell = worksheet.cell(var_address)
+        sleep(0.25)
+        if var_cell.value == '1':
+            return True
+        else:
+            return False
 
     def add_trading_volume(
             self,
