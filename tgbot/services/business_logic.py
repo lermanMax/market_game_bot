@@ -3,17 +3,14 @@ from collections import defaultdict
 import string
 import random
 from datetime import date, timezone, timedelta, datetime, time
-import logging
+from loguru import logger
 from typing import List
 
-from gs_module import GameSheet
-from db_managing import CompanyData, GameData, GameUserData, MarketBotData, \
-    ShareData, SuperAdminData, TgUserData
-from config import TIMEZONE_SERVER
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger('busines_logic')
+from tgbot.services.gs_module import GameSheet
+from tgbot.services.db_managing import CompanyData, GameData, GameUserData, MarketBotData, \
+    ShareData, SuperAdminData, TgUserData, DoesNotExist
+from tgbot.config import TIMEZONE_SERVER
+from tgbot.loader import scheduler
 
 
 class NotEnoughMoney(Exception):
@@ -36,7 +33,10 @@ class CacheMixin(object):
             object_ = cls.__all_objects[cls][key]
             if object_ is not None:
                 return object_
-        return cls(key)
+        try:
+            return cls(key)
+        except DoesNotExist:
+            return None
 
 
 class MarketBot():
@@ -85,6 +85,66 @@ class MarketBot():
 
     def get_active_gameuser_id_for(self, tg_id: int) -> int:
         return self.market_bot_data.get_active_gameuser_id(tg_id)
+    
+    def create_market_schedule(self, game: Game):
+        logger.info(f'create_market_schedule for game: { game.game_id }')
+        open_time = game.get_open_time_in_server_tz()
+        open_time_str = open_time.strftime("%H:%M")
+        open_hour = open_time.strftime("%H")
+        open_minute = open_time.strftime("%M")
+
+        def open_job():
+            if game.game_is_ended():
+                return scheduler.remove_job(f'open_{game.game_id}')
+            game.job_before_open()
+        scheduler.add_job(
+            func=open_job,
+            trigger='cron',
+            hour=open_hour,
+            minute=open_minute,
+            id=f'open_{game.game_id}'
+        )
+        # schedule.every().day.at(open_time_str).do(open_job)
+
+        close_time = game.get_close_time_in_server_tz()
+        close_time_str = close_time.strftime("%H:%M")
+        close_hour = close_time.strftime("%H")
+        close_minute = close_time.strftime("%M")
+
+        def close_job():
+            if game.game_is_ended():
+                return scheduler.remove_job(f'close_{game.game_id}')
+            game.job_after_close()
+        scheduler.add_job(
+            func=close_job,
+            trigger='cron',
+            hour=close_hour,
+            minute=close_minute,
+            id=f'open_{game.game_id}'
+        )
+        # schedule.every().day.at(close_time_str).do(close_job)
+    
+    def check_games_and_create_schedule(self):
+        for game in MarketBot().get_games():
+            if not game.game_is_ended():
+                self.create_market_schedule(game)
+    
+
+    def create_load_base_schedule(self, game: Game, admin_id: int):
+        """load_base_value_if_its_ready"""
+        def job():
+            if game.load_base_value_if_its_ready():
+                logger.info(f'base values soccesful loaded in game: { game.game_id }')
+                game.load_companes_from_sheet()
+                MarketBot().create_market_schedule(game)
+                scheduler.remove_job(f'load_{game.game_id}')
+
+        scheduler.add_job(
+            func=job,
+            trigger='interval',
+            seconds=20,
+            id=f'load_{game.game_id}'
+        )
 
 
 class TgUser(CacheMixin):
@@ -107,11 +167,11 @@ class TgUser(CacheMixin):
         return self.tg_data.is_blocked()
 
     def ban(self):
-        log.info(f'ban: {self.tg_id}')
+        logger.info(f'ban: {self.tg_id}')
         self.tg_data.block()
 
     def unban(self):
-        log.info(f'unban: {self.tg_id}')
+        logger.info(f'unban: {self.tg_id}')
         self.tg_data.unblock()
 
 
@@ -315,22 +375,22 @@ class Game(CacheMixin):
         return self.game_data.is_market_open()
 
     def open_market(self):
-        log.info(f'Open market game: {self.game_id}')
+        logger.info(f'Open market game: {self.game_id}')
         self.game_data.open_market()
 
     def close_market(self):
-        log.info(f'Close market game: {self.game_id}')
+        logger.info(f'Close market game: {self.game_id}')
         self.game_data.close_market()
 
     def is_registration_open(self) -> bool:
         return self.game_data.is_registration_open()
 
     def open_registration(self):
-        log.info(f'Open registration game: {self.game_id}')
+        logger.info(f'Open registration game: {self.game_id}')
         self.game_data.open_registration()
 
     def close_registration(self):
-        log.info(f'Close registration game: {self.game_id}')
+        logger.info(f'Close registration game: {self.game_id}')
         self.game_data.close_registration()
 
     def update_is_market_open(self) -> bool:
@@ -386,13 +446,13 @@ class Game(CacheMixin):
         if self.get_game_sheet().is_base_values_ready():
             try:
                 self.load_base_value()
-                log.info(f'values for game {self.game_id} was loaded')
+                logger.info(f'values for game {self.game_id} was loaded')
                 return True
             except Exception as e:
-                log.error(f'values_not_correct game {self.game_id}: { e }')
+                logger.error(f'values_not_correct game {self.game_id}: { e }')
                 return False
         else:
-            log.info('values_not_ready')
+            logger.info('values_not_ready')
             return False
 
     def add_company(self, company_name: str, company_ticker: str) -> Company:

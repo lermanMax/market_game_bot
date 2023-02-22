@@ -3,7 +3,7 @@ import logging
 from time import sleep
 from pygsheets import authorize, Worksheet
 
-from config import GSHEET_SERVICE_FILE
+from tgbot.config import GSHEET_SERVICE_FILE
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

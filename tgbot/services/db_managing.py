@@ -3,13 +3,17 @@ from datetime import date, time
 
 import psycopg2
 from psycopg2 import extras
-from config import DB_HOST, DB_NAME, DB_USER, DB_PASS, DB_PORT
+from tgbot.config import DB_HOST, DB_NAME, DB_USER, DB_PASS, DB_PORT
 
 db_config = {'host': DB_HOST,
              'dbname': DB_NAME,
              'user': DB_USER,
              'password': DB_PASS,
              'port': DB_PORT}
+
+
+class DoesNotExist(Exception):
+    pass
 
 
 class MarketBotData:
@@ -102,7 +106,11 @@ class TgUserData:
                                 FROM tg_user
                                 WHERE tg_id = %s;'''
             cursor.execute(select_script, (tg_id,))
-            select_username, = cursor.fetchone()
+            fetchone_return = cursor.fetchone()
+            if fetchone_return:
+                select_username, = fetchone_return
+            else:
+                raise DoesNotExist
         connection.commit()
         connection.close()
 

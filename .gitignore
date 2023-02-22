@@ -3,3 +3,5 @@
 myvenv
 testing.py
 __pycache__/
+.env
+.venv
