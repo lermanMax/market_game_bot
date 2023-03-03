@@ -120,7 +120,7 @@ class MarketBot():
             trigger='cron',
             hour=close_hour,
             minute=close_minute,
-            id=f'open_{game.game_id}'
+            id=f'close_{game.game_id}'
         )
         # schedule.every().day.at(close_time_str).do(close_job)
     
@@ -437,6 +437,8 @@ class Game(CacheMixin):
 
     def load_base_value(self) -> None:
         base_value_dict = self.get_game_sheet().get_base_value()
+        logger.info(f'Loaded base value: {base_value_dict}')
+
         self.game_data.fill_in_game_data(
             game_data_dict=base_value_dict
         )
@@ -619,6 +621,7 @@ class Game(CacheMixin):
             new_effect = self.get_game_sheet().get_effect(
                 ticker=company.get_ticker()
             )
+            delta_effect_price = new_effect - old_effect
 
             new_price = (
                 old_price
@@ -626,8 +629,8 @@ class Game(CacheMixin):
                     100
                     - (number_of_shares_sold * sell_factor)
                     + (number_of_shares_bought * buy_factor)
-                    + (new_effect - old_effect)
                 ) / 100
+                + delta_effect_price
             )
 
             company.change_price(new_price=round(new_price, 2))

@@ -58,7 +58,7 @@ async def send_market(message: types.Message, gameuser: GameUser):
             f'\nУ вас в портфеле этих акций: { count }'
         )
         if is_market_open:
-            keyboard = make_keyboard_for_company(company.get_id())
+            keyboard = await make_keyboard_for_company(company.get_id())
         else:
             keyboard = None
         await message.answer(
@@ -132,7 +132,7 @@ async def send_gameuser_help(message: types.Message, gameuser: GameUser):
     FAQ_text = 'Часто задаваемые вопросы:'
     for QA_dict in game.get_FAQ():
         FAQ_text += (
-            f"\n\n<b>{ QA_dict['question'] }</b>"
+            f"\n\n◾ <b>{ QA_dict['question'] }</b>"
             f"\n{ QA_dict['answer'] }"
         )
     await message.answer(
@@ -161,7 +161,7 @@ gameuser_buttons_dict = {
 @dp.message_handler(
     lambda message: message.text in gameuser_buttons_list,
     state='*')
-async def gameuser_keyboard(message: types.Message, state: FSMContext):
+async def gameuser_keyboard_push(message: types.Message, state: FSMContext):
     """
     Получаем нажатие кнопки из клавиатуры игрока
     """
@@ -235,7 +235,8 @@ async def callback_market_deal(
     await MarketDeal.waiting_number_shares.set()
     await query.answer()
     msg = await query.message.answer(
-        text=text, reply_markup=make_keyboard_for_deal())
+        text=text,
+        reply_markup=await make_keyboard_for_deal())
     await state.update_data(answer=callback_data['answer'])
     await state.update_data(data_=callback_data['data'])
     await state.update_data(message_id=msg.message_id)

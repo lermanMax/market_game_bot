@@ -40,8 +40,8 @@ def get_gameuser_keyboard() -> ReplyKeyboardMarkup:
     return keyboard
 
 
-def make_keyboard_for_company(company_id: int):
-    keyboard = make_inline_keyboard(
+async def make_keyboard_for_company(company_id: int):
+    keyboard = await make_inline_keyboard(
         question_name='market_deal',
         answers=[buy_button, sell_button],
         data=company_id
@@ -49,8 +49,8 @@ def make_keyboard_for_company(company_id: int):
     return keyboard
 
 
-def make_keyboard_for_deal():
-    keyboard = make_inline_keyboard(
+async def make_keyboard_for_deal():
+    keyboard = await make_inline_keyboard(
         question_name='cancel',
         answers=[cancel_button]
     )

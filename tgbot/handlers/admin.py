@@ -10,7 +10,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 
 # Import modules of this project
 from tgbot.loader import dp
-from tgbot.config import API_TOKEN, SUPERADMIN_PASS, BOT_MAILADDRESS
+from tgbot.config import SUPERADMIN_PASS, BOT_MAILADDRESS
 from tgbot.keyboards.inline import make_inline_keyboard, button_cb
 from tgbot.utils.file_manager import get_text_from
 from tgbot.services.business_logic import Company, DealIllegal, Game, MarketBot, \
@@ -113,18 +113,33 @@ async def new_gs_link(message: types.Message, state: FSMContext):
 delete_button = 'Удалить'
 stop_registration_button = 'Закрыть регистрацию'
 open_registration_button = 'Открыть регистрацию'
+stop_market_button = 'Закрыть торги'
+open_market_button = 'Открыть торги'
+stop_market_and_job_after_button = 'Закрыть торги и посчитать'
 
 
-def make_keyboard_for_game(game_id: int):
-    keyboard = make_inline_keyboard(
+async def make_keyboard_for_game(game_id: int):
+    keyboard = await make_inline_keyboard(
         question_name='game',
         answers=[
             open_registration_button,
             stop_registration_button,
+            open_market_button,
+            stop_market_button,
+            stop_market_and_job_after_button,
         ],
         data=game_id
     )
     return keyboard
+
+async def make_text_for_game(game: Game):
+    text = (
+        f'Игра: {game.game_id} \n'
+        f'Ссылка: {game.get_gs_link()} \n'
+        f'Регистрация: {game.is_registration_open()} \n'
+        f'Торги: {game.is_market_open_now()} \n'
+    )
+    return text
 
 
 @dp.message_handler(commands=['all_games'], state="*")
@@ -134,12 +149,10 @@ async def all_game_command(message: types.Message, state: FSMContext):
         return
     await message.answer('Все игры:')
     for game in MarketBot().get_games():
-        keyboard = make_keyboard_for_game(game.game_id)
+        keyboard = await make_keyboard_for_game(game.game_id)
+        text = await make_text_for_game(game)
         await message.answer(
-            text=(
-                f'Игра: {game.game_id} '
-                f'\nРегистрация: {game.is_registration_open()}'
-            ),
+            text=text,
             reply_markup=keyboard
         )
 
@@ -150,18 +163,76 @@ async def delete_game(message: types.Message, game_id: int):
 
 async def stop_registration_game(message: types.Message, game_id: int):
     logger.info('stop_registration_game from: %r', message.from_user.id)
-    Game(game_id).close_registration()
+    game = Game.get(game_id)
+    game.close_registration()
+
+    keyboard = await make_keyboard_for_game(game.game_id)
+    text = await make_text_for_game(game)
+    await message.edit_text(
+        text=text,
+        reply_markup=keyboard
+    )
 
 
 async def open_registration_game(message: types.Message, game_id: int):
     logger.info('open_registration_game from: %r', message.from_user.id)
-    Game(game_id).open_registration()
+    game = Game.get(game_id)
+    game.open_registration()
+
+    keyboard = await make_keyboard_for_game(game.game_id)
+    text = await make_text_for_game(game)
+    await message.edit_text(
+        text=text,
+        reply_markup=keyboard
+    )
+
+
+async def stop_market_game(message: types.Message, game_id: int):
+    logger.info('stop_market_game from: %r', message.from_user.id)
+    game = Game.get(game_id)
+    game.close_market()
+
+    keyboard = await make_keyboard_for_game(game.game_id)
+    text = await make_text_for_game(game)
+    await message.edit_text(
+        text=text,
+        reply_markup=keyboard
+    )
+
+
+async def stop_market_and_job_after_game(message: types.Message, game_id: int):
+    logger.info('stop_market_and_job_after_game from: %r', message.from_user.id)
+    game = Game.get(game_id)
+    game.job_after_close()
+
+    keyboard = await make_keyboard_for_game(game.game_id)
+    text = await make_text_for_game(game)
+    await message.edit_text(
+        text=text,
+        reply_markup=keyboard
+    )
+
+
+async def open_market_game(message: types.Message, game_id: int):
+    logger.info('open_market_game from: %r', message.from_user.id)
+    game = Game.get(game_id)
+    game.open_market()
+
+    keyboard = await make_keyboard_for_game(game.game_id)
+    text = await make_text_for_game(game)
+    await message.edit_text(
+        text=text,
+        reply_markup=keyboard
+    )
 
 
 gameadmin_button_dict = {
     delete_button: delete_game,
     stop_registration_button: stop_registration_game,
-    open_registration_button: open_registration_game
+    open_registration_button: open_registration_game,
+    stop_market_button: stop_market_game,
+    open_market_button: open_market_game,
+    stop_market_and_job_after_button: stop_market_and_job_after_game,
 }
 
 

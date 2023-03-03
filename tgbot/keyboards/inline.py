@@ -18,7 +18,7 @@ async def make_inline_keyboard(question_name, answers, data=0):
             question_name=question_name,
             answer=answer,
             data=data)
-        row.append(types.InlineKeyboardButton(answer,
+        row.append(InlineKeyboardButton(answer,
                                               callback_data=cb_data))
     if len(row) <= 2:
         keyboard.row(*row)

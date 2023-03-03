@@ -1,13 +1,11 @@
 from datetime import date, datetime
 import logging
 from time import sleep
-from pygsheets import authorize, Worksheet
+from loguru import logger
 
+from pygsheets import authorize, Worksheet
 from tgbot.config import GSHEET_SERVICE_FILE
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger('gs_module')
 
 BASE_WS = 'База'
 QA_WS = 'ЧаВо'
@@ -27,7 +25,6 @@ base_value_list = [
     'start_price',
     'start_cash',
     'max_percentage',
-    'diversity',
     'sell_factor',
     'buy_factor',
     'admin_contact',
@@ -38,13 +35,17 @@ base_value_int = [
     'timezone',
     'start_price',
     'start_cash',
-    'diversity',
 ]
 
 base_value_float = [
     'max_percentage',
     'sell_factor',
     'buy_factor',
+]
+
+base_value_date = [
+    'start_day',
+    'end_day',
 ]
 
 
@@ -60,7 +61,8 @@ class GameSheet():
                 return True
             else:
                 return False
-        except Exception:
+        except Exception as e:
+            logger.error(f'url is not correct: {e}')
             return False
 
     def __init__(self, gs_link: str):
@@ -73,8 +75,8 @@ class GameSheet():
                 client = authorize(service_file=GSHEET_SERVICE_FILE)
                 sheet = client.open_by_url(self.gs_link)
                 did_conect = True
-            except Exception:
-                log.error('google didnt get sheet')
+            except Exception as e:
+                logger.error(f'connection error: {e}')
                 pass
 
         return sheet
@@ -119,6 +121,8 @@ class GameSheet():
                 value = int(value)
             elif variable in base_value_float:
                 value = float(value.replace(',', '.'))
+            elif variable in base_value_date:
+                value = datetime.strptime(value, '%d.%m.%Y').date()
             result[variable] = value
 
         return result
@@ -296,3 +300,6 @@ class GameSheet():
             overwrite=False
         )
         sleep(0.25)
+
+if __name__ == '__main__':
+    pass

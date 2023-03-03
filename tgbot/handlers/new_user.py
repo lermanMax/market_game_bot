@@ -10,7 +10,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 
 # Import modules of this project
 from tgbot.loader import dp
-from keyboards.gameuser import gameuser_keyboard
+from tgbot.keyboards.gameuser import gameuser_keyboard
 from tgbot.utils.file_manager import get_text_from
 from tgbot.services.business_logic import Company, DealIllegal, Game, MarketBot, \
     NotEnoughMoney, SuperAdmin, GameUser, TgUser

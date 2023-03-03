@@ -3,5 +3,5 @@ python_dotenv==0.21.1
 aiogram==2.19
 pygsheets==2.0.5
 schedule==1.1.0
-apscheduler=3.10.0
+apscheduler==3.10.0
 loguru==0.6.0
