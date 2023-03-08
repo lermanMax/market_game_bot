@@ -119,7 +119,7 @@ open_registration_button = 'Открыть регистрацию'
 stop_market_button = 'Закрыть торги'
 open_market_button = 'Открыть торги'
 stop_market_and_job_after_button = 'Закрыть торги и посчитать'
-update_base_button = 'Обновить Базу'
+update_base_button = 'Обновить Базовые значения'
 
 
 async def make_keyboard_for_game(game_id: int):
@@ -207,6 +207,7 @@ async def stop_market_game(message: types.Message, game_id: int):
 
 async def stop_market_and_job_after_game(message: types.Message, game_id: int):
     logger.info('stop_market_and_job_after_game from: %r', message.from_user.id)
+    answer = await message.answer('Расчет запущен...')
     game = Game.get(game_id)
     game.job_after_close()
 
@@ -216,6 +217,7 @@ async def stop_market_and_job_after_game(message: types.Message, game_id: int):
         text=text,
         reply_markup=keyboard
     )
+    await answer.delete()
 
 
 async def open_market_game(message: types.Message, game_id: int):

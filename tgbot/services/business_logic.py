@@ -36,6 +36,7 @@ class CacheMixin(object):
         try:
             return cls(key)
         except DoesNotExist:
+            cls.__all_objects[cls][key] = None
             return None
 
 
@@ -642,6 +643,20 @@ class Game(CacheMixin):
                 price=company.get_price()
             )
         return
+    
+    def give_extra_cash(self) -> None:
+        extra_cash = self.game_data.get_extra_cash()
+        if not extra_cash:
+            return
+        else: 
+            gameusers = self.get_list_of_gameusers()
+            for gameuser in gameusers:
+                cash = gameuser.get_cash()
+                gameuser.change_cash(
+                    new_cash=cash+extra_cash
+                )
+            self.game_data.change_extra_cash(0)
+            self.get_game_sheet().change_extra_cash(0)
 
     def update_gs_trading_volume(self) -> None:
         companyes_list = self.get_list_of_companyes()
@@ -706,6 +721,7 @@ class Game(CacheMixin):
         self.close_market()
         self.liquidation_companyes()
         self.update_prices()
+        self.give_extra_cash()
         self.update_gs_trading_volume()
         self.update_gs_company_prices()
         self.update_gs_portfolios()

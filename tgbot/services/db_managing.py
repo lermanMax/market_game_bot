@@ -540,6 +540,18 @@ class GameData:
     def get_buy_factor(self) -> float:
         return self._buy_factor
 
+    def get_extra_cash(self) -> int:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            select_script = '''
+                SELECT game.extra_cash
+                FROM game WHERE game_id = %s;'''
+            cursor.execute(select_script, (self._game_id,))
+            extra_cash, = cursor.fetchone()
+        connection.commit()
+        connection.close()
+        return extra_cash
+
     def get_admin_contact(self) -> str:
         return self._admin_contact
 
@@ -618,6 +630,17 @@ class GameData:
             insert_values = (False, self._game_id)
             update_script = '''
                 UPDATE game SET is_registration_open = %s
+                WHERE game_id = %s;'''
+            cursor.execute(update_script, insert_values)
+        connection.commit()
+        connection.close()
+    
+    def change_extra_cash(self, extra_cash: int) -> None:
+        connection = psycopg2.connect(**db_config)
+        with connection.cursor() as cursor:
+            insert_values = (extra_cash, self._game_id)
+            update_script = '''
+                UPDATE game SET extra_cash = %s
                 WHERE game_id = %s;'''
             cursor.execute(update_script, insert_values)
         connection.commit()
@@ -704,6 +727,7 @@ class GameData:
         max_percentage = game_data_dict['max_percentage']
         sell_factor = game_data_dict['sell_factor']
         buy_factor = game_data_dict['buy_factor']
+        extra_cash = game_data_dict['extra_cash']
         admin_contact = game_data_dict['admin_contact']
         chart_link = game_data_dict['chart_link']
 
@@ -712,7 +736,8 @@ class GameData:
             insert_values = (
                 timezone, start_day, end_day, open_time, close_time,
                 start_price, start_cash, max_percentage, sell_factor,
-                buy_factor, admin_contact, chart_link, self._game_id)
+                buy_factor, extra_cash, admin_contact, chart_link,
+                self._game_id)
             insert_script = '''
                 UPDATE game
                 SET timezone = %s,
@@ -725,6 +750,7 @@ class GameData:
                     max_percentage = %s,
                     sell_factor = %s,
                     buy_factor = %s,
+                    extra_cash = %s,
                     admin_contact = %s,
                     chart_link = %s
                 WHERE game_id = %s;'''

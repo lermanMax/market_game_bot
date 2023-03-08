@@ -27,6 +27,7 @@ base_value_list = [
     'max_percentage',
     'sell_factor',
     'buy_factor',
+    'extra_cash',
     'admin_contact',
     'chart_link'
 ]
@@ -35,6 +36,7 @@ base_value_int = [
     'timezone',
     'start_price',
     'start_cash',
+    'extra_cash',
 ]
 
 base_value_float = [
@@ -126,6 +128,14 @@ class GameSheet():
             result[variable] = value
 
         return result
+    
+    def change_extra_cash(self, extra_cash: int) -> None:
+        worksheet = self.get_worksheet(BASE_WS)
+
+        key_name_cell = worksheet.find('extra_cash', matchEntireCell=True)[0]
+        key_address = key_name_cell.address + (0, 1)
+        key_cell = worksheet.cell(key_address)
+        key_cell.set_value(extra_cash)
 
     def get_company_names(self) -> list:
         """return list of dicts with name of companes

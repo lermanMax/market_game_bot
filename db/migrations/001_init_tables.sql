@@ -24,6 +24,7 @@ CREATE TABLE game (
         max_percentage float8,
         sell_factor float8,
         buy_factor float8,
+        extra_cash int,
         admin_contact varchar(255),
         chart_link varchar(255)
 );
