@@ -3,16 +3,19 @@ from typing import List, Dict
 import time
 from loguru import logger
 
-from aiogram import Bot, Dispatcher, executor, types
-
+from aiogram import types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.utils.callback_data import CallbackData
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Import modules of this project
 from tgbot.loader import dp
 from tgbot.config import SUPERADMIN_PASS, BOT_MAILADDRESS
 from tgbot.keyboards.inline import make_inline_keyboard, button_cb
 from tgbot.utils.file_manager import get_text_from
+from tgbot.utils.broadcast import send_post, broadcast_post
+from tgbot.utils.pars_messages import parse_message, Post
 from tgbot.services.business_logic import Company, DealIllegal, Game, MarketBot, \
     NotEnoughMoney, SuperAdmin, GameUser, TgUser
 
@@ -30,7 +33,7 @@ async def superadmin_command_from_real_admin(message: types.Message):
         get_text_from('./tgbot/text_of_questions/admin.txt'))
 
 
-@dp.message_handler(commands=['superadmin'], state="*")
+@dp.message_handler(commands=['superadmin', 'sa'], state="*")
 async def superadmin_command(message: types.Message):
     logger.info('superadmin_command from: %r', message.from_user.id)
     if message.from_user.id in MarketBot().get_superadmin_tg_ids():
@@ -116,6 +119,7 @@ open_registration_button = 'Открыть регистрацию'
 stop_market_button = 'Закрыть торги'
 open_market_button = 'Открыть торги'
 stop_market_and_job_after_button = 'Закрыть торги и посчитать'
+update_base_button = 'Обновить Базу'
 
 
 async def make_keyboard_for_game(game_id: int):
@@ -127,6 +131,7 @@ async def make_keyboard_for_game(game_id: int):
             open_market_button,
             stop_market_button,
             stop_market_and_job_after_button,
+            update_base_button,
         ],
         data=game_id
     )
@@ -134,8 +139,8 @@ async def make_keyboard_for_game(game_id: int):
 
 async def make_text_for_game(game: Game):
     text = (
-        f'Игра: {game.game_id} \n'
-        f'Ссылка: {game.get_gs_link()} \n'
+        f'Игра: {game.game_id} {game.get_name()}\n'
+        f'Ссылка: <a href="{game.get_gs_link()}">google sheet</a> \n'
         f'Регистрация: {game.is_registration_open()} \n'
         f'Торги: {game.is_market_open_now()} \n'
     )
@@ -225,6 +230,19 @@ async def open_market_game(message: types.Message, game_id: int):
         reply_markup=keyboard
     )
 
+async def update_base_game(message: types.Message, game_id: int):
+    logger.info('update_base_game from: %r', message.from_user.id)
+    answer = await message.answer('Начинаю обновление ...')
+    game: Game = Game.get(game_id)
+    result_loading = game.load_base_value()
+
+    await answer.delete()
+    if result_loading:
+        text = f'База игры {game.game_id} успешно обновлена'
+    else:
+        text = f'Базу игры {game.game_id} не удалось обновить'
+    await message.answer(text)
+
 
 gameadmin_button_dict = {
     delete_button: delete_game,
@@ -233,6 +251,7 @@ gameadmin_button_dict = {
     stop_market_button: stop_market_game,
     open_market_button: open_market_game,
     stop_market_and_job_after_button: stop_market_and_job_after_game,
+    update_base_button: update_base_game,
 }
 
 
@@ -281,5 +300,69 @@ async def ban_command(message: types.Message, state: FSMContext):
         await message.reply('разбанено')
 
 
-if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=False)
+#  -------------------------------------------------------- РАССЫЛКА СООБЩЕНИЙ
+class Mailing(StatesGroup):
+    WaitLetter = State()
+
+mailing_cb = CallbackData('mailing_cb', 'target')
+
+@dp.message_handler(commands=['mailing'], state='*')
+async def letter_for_mailing_handler(message: types.Message):
+    logger.info(f'letter_for_mailing_handler from: { message.from_user.id}',)
+    if message.from_user.id not in MarketBot().get_superadmin_tg_ids():
+        return
+    text = 'Напишите сообщение. Потом можно будет выбрать кому его отправить.'
+    await Mailing.WaitLetter.set()
+    await message.answer(text=text)
+
+
+@dp.message_handler(
+        content_types=types.message.ContentType.ANY,
+        state=Mailing.WaitLetter)
+async def start_mailing_handler(message: types.Message, state: FSMContext):
+    logger.info(f'start_mailing_handler from: {message.from_user.id}')
+    
+    parsed_post: Post = await parse_message(message)
+
+    await state.reset_state()
+    # make keyboard with game ids
+    inline_buttons = []
+    inline_buttons.append(
+            [
+                InlineKeyboardButton(
+                    text='Удалить',
+                    callback_data=mailing_cb.new(target='delete')),
+            ]
+        )
+    for game in MarketBot().get_games():
+        inline_buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f'Игра {game.game_id}',
+                    callback_data=mailing_cb.new(target=str(game.game_id))
+                ),
+            ]
+        )
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=inline_buttons
+    )
+    await broadcast_post(parsed_post, message.from_user.id, reply_markup=keyboard)
+
+
+@dp.callback_query_handler(mailing_cb.filter())
+async def mailing_broadcast_handler(call: types.CallbackQuery, callback_data: Dict[str, str]):
+    target = str(callback_data['target'])
+    if target=='delete':
+        await call.message.delete()
+        await call.message.answer('Удалено')
+        return
+    await call.message.edit_reply_markup(InlineKeyboardMarkup())
+
+    game: Game = Game.get(int(target))
+    users_id = game.get_gameuser_tg_ids()
+    result_text = await broadcast_post(
+        post=await parse_message(call.message),
+        users_id=users_id,
+        show_result=True
+    )
+    await call.message.answer(result_text)

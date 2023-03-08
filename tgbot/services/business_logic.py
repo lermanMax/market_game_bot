@@ -344,6 +344,9 @@ class Game(CacheMixin):
             return True
         else:
             return False
+    
+    def get_name(self) -> str:
+        return self.game_data.get_name()
 
     def get_gs_link(self) -> str:
         return self.game_data.get_gs_link()
@@ -435,24 +438,22 @@ class Game(CacheMixin):
             tg_id=gameuser.get_tg_id()
         )
 
-    def load_base_value(self) -> None:
-        base_value_dict = self.get_game_sheet().get_base_value()
-        logger.info(f'Loaded base value: {base_value_dict}')
+    def load_base_value(self) -> bool:
+        try:
+            base_value_dict = self.get_game_sheet().get_base_value()
+            logger.info(f'Loaded base value: {base_value_dict}')
 
-        self.game_data.fill_in_game_data(
-            game_data_dict=base_value_dict
-        )
-        self.game_data = GameData(self.game_id)  # update data after changes
+            self.game_data.fill_in_game_data(base_value_dict)
+            self.game_data = GameData(self.game_id)  # update data after changes
+            logger.info(f'values for game {self.game_id} was loaded')
+            return True
+        except Exception as e:
+            logger.error(f'values_not_correct game {self.game_id}: { e }')
+            return False
 
     def load_base_value_if_its_ready(self) -> bool:
         if self.get_game_sheet().is_base_values_ready():
-            try:
-                self.load_base_value()
-                logger.info(f'values for game {self.game_id} was loaded')
-                return True
-            except Exception as e:
-                logger.error(f'values_not_correct game {self.game_id}: { e }')
-                return False
+            return self.load_base_value()
         else:
             logger.info('values_not_ready')
             return False
