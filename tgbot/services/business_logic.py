@@ -659,7 +659,7 @@ class Game(CacheMixin):
             self.get_game_sheet().change_extra_cash(0)
 
     def update_gs_trading_volume(self) -> None:
-        companyes_list = self.get_list_of_companyes()
+        companyes_list = self.get_list_of_actual_companyes()
 
         for company in companyes_list:
             sell_transactions = self.game_data.get_transactions(
@@ -687,7 +687,7 @@ class Game(CacheMixin):
         return
 
     def update_gs_company_prices(self) -> None:
-        companyes_list = self.get_list_of_companyes()
+        companyes_list = self.get_list_of_actual_companyes()
 
         for company in companyes_list:
             self.get_game_sheet().add_company_price(

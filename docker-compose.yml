@@ -41,6 +41,17 @@ services:
           memory: 1G
     networks:
       - postgres
+  
+  market_tgbot:
+    build: .
+    container_name: tgbot
+    command: python -m tgbot
+    volumes:
+      - .:/tg_app
+    working_dir: /tg_app
+    networks:
+      - postgres
+
 
 networks:
   postgres:

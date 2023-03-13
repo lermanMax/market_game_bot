@@ -4,6 +4,7 @@ import time
 from loguru import logger
 
 from aiogram import types
+from aiogram.utils.exceptions import MessageNotModified
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.utils.callback_data import CallbackData
@@ -173,10 +174,13 @@ async def stop_registration_game(message: types.Message, game_id: int):
 
     keyboard = await make_keyboard_for_game(game.game_id)
     text = await make_text_for_game(game)
-    await message.edit_text(
-        text=text,
-        reply_markup=keyboard
-    )
+    try:
+        await message.edit_text(
+            text=text,
+            reply_markup=keyboard
+        )
+    except MessageNotModified:
+        pass
 
 
 async def open_registration_game(message: types.Message, game_id: int):
@@ -186,10 +190,13 @@ async def open_registration_game(message: types.Message, game_id: int):
 
     keyboard = await make_keyboard_for_game(game.game_id)
     text = await make_text_for_game(game)
-    await message.edit_text(
-        text=text,
-        reply_markup=keyboard
-    )
+    try:
+        await message.edit_text(
+            text=text,
+            reply_markup=keyboard
+        )
+    except MessageNotModified:
+        pass
 
 
 async def stop_market_game(message: types.Message, game_id: int):
@@ -199,10 +206,13 @@ async def stop_market_game(message: types.Message, game_id: int):
 
     keyboard = await make_keyboard_for_game(game.game_id)
     text = await make_text_for_game(game)
-    await message.edit_text(
-        text=text,
-        reply_markup=keyboard
-    )
+    try:
+        await message.edit_text(
+            text=text,
+            reply_markup=keyboard
+        )
+    except MessageNotModified:
+        pass
 
 
 async def stop_market_and_job_after_game(message: types.Message, game_id: int):
@@ -213,11 +223,15 @@ async def stop_market_and_job_after_game(message: types.Message, game_id: int):
 
     keyboard = await make_keyboard_for_game(game.game_id)
     text = await make_text_for_game(game)
-    await message.edit_text(
-        text=text,
-        reply_markup=keyboard
-    )
     await answer.delete()
+    try:
+        await message.edit_text(
+            text=text,
+            reply_markup=keyboard
+        )
+    except MessageNotModified:
+        pass
+    
 
 
 async def open_market_game(message: types.Message, game_id: int):
@@ -227,10 +241,13 @@ async def open_market_game(message: types.Message, game_id: int):
 
     keyboard = await make_keyboard_for_game(game.game_id)
     text = await make_text_for_game(game)
-    await message.edit_text(
-        text=text,
-        reply_markup=keyboard
-    )
+    try:
+        await message.edit_text(
+            text=text,
+            reply_markup=keyboard
+        )
+    except MessageNotModified:
+        pass
 
 async def update_base_game(message: types.Message, game_id: int):
     logger.info('update_base_game from: %r', message.from_user.id)
