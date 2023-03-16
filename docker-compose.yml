@@ -4,9 +4,9 @@ services:
     container_name: db_container
     image: postgres:13.3
     environment:
-      POSTGRES_DB: "market_game_db"
-      POSTGRES_USER: "bot"
-      POSTGRES_PASSWORD: "bot"
+      POSTGRES_DB: $DB_NAME
+      POSTGRES_USER: $DB_USER
+      POSTGRES_PASSWORD: $DB_PASS
       PGDATA: "/var/lib/postgresql/data/pgdata"
     volumes:
       - ../2. Init Database:/docker-entrypoint-initdb.d
@@ -17,28 +17,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 4G
-    networks:
-      - postgres
-
-  pgadmin:
-    container_name: pgadmin_container
-    image: dpage/pgadmin4:5.7
-    environment:
-      PGADMIN_DEFAULT_EMAIL: "habrpguser@habr.com"
-      PGADMIN_DEFAULT_PASSWORD: "pgadminpwd4habr"
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-    volumes:
-      - ./pgadmin:/var/lib/pgadmin
-    ports:
-      - "5050:80"
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 1G
+          memory: 256M
     networks:
       - postgres
   
@@ -49,6 +28,13 @@ services:
     volumes:
       - .:/tg_app
     working_dir: /tg_app
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 600M
+        reservations:
+          memory: 256M
     networks:
       - postgres
 
