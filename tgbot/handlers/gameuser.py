@@ -38,7 +38,7 @@ async def send_market(message: types.Message, gameuser: GameUser):
 
     text = (
         'Это список всех компаний.'
-        f'\nВаш баланс: { cash }'
+        f'\nВаш баланс: { round(cash) }'
         f'{ market_closed }'
     )
     await message.answer(
@@ -54,7 +54,7 @@ async def send_market(message: types.Message, gameuser: GameUser):
         )
         text = (
             f'📈 <b>{ company.get_name() }</b> ({ company.get_ticker() })'
-            f'\nЦена: {company.get_price()}'
+            f'\nЦена: {round(company.get_price())}'
             f'\nУ вас в портфеле этих акций: { count }'
         )
         if is_market_open:
@@ -72,8 +72,8 @@ async def send_gameuser_partfolio(message: types.Message, gameuser: GameUser):
     size = gameuser.get_portfolio_size()
 
     text = (
-        f'Оценка портфеля: { size }'
-        f'\nСвободные средства: { gameuser.get_cash() }'
+        f'Оценка портфеля: { round(size) }'
+        f'\nСвободные средства: { round(gameuser.get_cash()) }'
         '\n------------------'
     )
     shares_dict = {}
@@ -85,7 +85,7 @@ async def send_gameuser_partfolio(message: types.Message, gameuser: GameUser):
 
     for company_id, number in shares_dict.items():
         company = Company.get(company_id)
-        s = f'\n{company.get_ticker()} - {number} - {company.get_price()}'
+        s = f'\n{company.get_ticker()} - {number} - {round(company.get_price())}'
         text += s
     await message.answer(
         text=text,
@@ -212,8 +212,8 @@ async def callback_market_deal(
             '<b>Введи количество</b> акций'
             f' { company.get_name() } ({ company.get_ticker() })'
             ' которое хочешь купить.'
-            f'\nСтоимость одной акции: {company.get_price()}'
-            f'\nВаши свободные средства: { gameuser.get_cash() }'
+            f'\nСтоимость одной акции: {round(company.get_price())}'
+            f'\nВаши свободные средства: { round(gameuser.get_cash()) }'
         )
     elif callback_data['answer'] == sell_button:
         count = len(
@@ -229,7 +229,7 @@ async def callback_market_deal(
             '<b>Введи количество</b> акций'
             f' { company.get_name() } ({ company.get_ticker() })'
             ' которое хочешь продать?'
-            f'\nСтоимость одной акции: {company.get_price()}'
+            f'\nСтоимость одной акции: {round(company.get_price())}'
             f'\nВ портфеле этих акций: { count }'
         )
     await MarketDeal.waiting_number_shares.set()
@@ -331,7 +331,7 @@ async def number_of_shares(message: types.Message, state: FSMContext):
         f'{text_was_sold}'
         f'{ company.get_name() } ({ company.get_ticker() }).'
         f'\n\nТеперь в портфеле этих акций: { count }'
-        f'\nВаш баланс: { gameuser.get_cash() }'
+        f'\nВаш баланс: { round(gameuser.get_cash()) }'
     )
     await bot.delete_message(
         chat_id=message.from_user.id,
