@@ -15,5 +15,16 @@ class AccessMiddleware(BaseMiddleware):
         logger.info(f'user_from_tg: {tg_id}')
         if TgUser.get(tg_id):
             if TgUser.get(tg_id).is_blocked():
-                logger.info(f'Пользователь {tg_id} заблокирован')
-                return CancelHandler()
+                logger.warning(f'Пользователь {tg_id} заблокирован!')
+                raise CancelHandler()
+    
+    async def on_pre_process_callback_query(
+            self, call: types.CallbackQuery, data: dict, *arg, **kwargs):
+        user_from_tg = types.User.get_current()
+        tg_id = user_from_tg.id
+        logger.info(f'user_from_tg: {tg_id}')
+        if TgUser.get(tg_id):
+            if TgUser.get(tg_id).is_blocked():
+                logger.warning(f'Пользователь {tg_id} заблокирован!')
+                raise CancelHandler()
+
