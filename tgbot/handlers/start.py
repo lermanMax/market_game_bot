@@ -23,7 +23,7 @@ def get_empty_keyboard():
 
 @dp.message_handler(commands=['start'], state="*")
 async def start_command(message: types.Message, state: FSMContext):
-    logger.info('start command from: %r', message.from_user.id)
+    logger.info(f'start command from: {message.from_user.id}')
 
     MarketBot().add_tg_user(
         tg_id=message.from_user.id,
@@ -37,7 +37,7 @@ async def start_command(message: types.Message, state: FSMContext):
 
 @dp.message_handler(commands=['help'], state="*")
 async def send_help(message: types.Message, state: FSMContext):
-    logger.info('help command from: %r', message.from_user.id)
+    logger.info(f'help command from: {message.from_user.id}')
     gameuser_id = MarketBot().get_active_gameuser_id_for(message.from_user.id)
     await state.finish()
     if gameuser_id:

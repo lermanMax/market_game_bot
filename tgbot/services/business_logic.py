@@ -38,6 +38,10 @@ class CacheMixin(object):
         except DoesNotExist:
             cls.__all_objects[cls][key] = None
             return None
+    
+    @classmethod
+    def clear_cache(cls):
+        cls.__all_objects = defaultdict(dict)
 
 
 class MarketBot():
@@ -726,6 +730,7 @@ class Game(CacheMixin):
 
     def job_after_close(self):
         self.close_market()
+        self.clear_cache()
         self.liquidation_companyes()
         self.update_prices()
         self.give_extra_cash()
