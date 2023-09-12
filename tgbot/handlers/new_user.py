@@ -26,7 +26,7 @@ class NewGameUser(StatesGroup):
 
 @dp.message_handler(commands=['new_user'], state="*")
 async def new_gameuser_command(message: types.Message, state: FSMContext):
-    logger.info('new_gameuser_command from: %r', message.from_user.id)
+    logger.info(f'new_gameuser_command from: {message.from_user.id}')
 
     await NewGameUser.waiting_game_key.set()
     await message.answer(
@@ -37,13 +37,13 @@ async def new_gameuser_command(message: types.Message, state: FSMContext):
     content_types=types.message.ContentType.TEXT,
     state=NewGameUser.waiting_game_key)
 async def gameuser_gamekey(message: types.Message, state: FSMContext):
-    logger.info('gameuser_gamekey from: %r', message.from_user.id)
+    logger.info(f'gameuser_gamekey from: {message.from_user.id}')
     game = MarketBot().get_game_by_game_key(
         game_key=message.text
     )
 
     if not game:
-        logger.warning('wrong gamekey from: %r', message.from_user.id)
+        logger.warning(f'wrong gamekey from: {message.from_user.id}')
         await message.answer(
             get_text_from('./tgbot/text_of_questions/game_key_wrong.txt'))
         return
@@ -55,7 +55,7 @@ async def gameuser_gamekey(message: types.Message, state: FSMContext):
         return
 
     if game.gameuser_in_game(tg_id=message.from_user.id):
-        logger.info('gameuser already exist: %r', message.from_user.id)
+        logger.info(f'gameuser already exist: {message.from_user.id}')
         await state.finish()
         await message.answer(
             get_text_from('./tgbot/text_of_questions/gameuser_in_game.txt'))
@@ -71,7 +71,7 @@ async def gameuser_gamekey(message: types.Message, state: FSMContext):
     content_types=types.message.ContentType.TEXT,
     state=NewGameUser.waiting_last_name)
 async def gameuser_lastname(message: types.Message, state: FSMContext):
-    logger.info('gameuser_lastname from: %r', message.from_user.id)
+    logger.info(f'gameuser_lastname from: {message.from_user.id}')
 
     gameuser_id = MarketBot().get_active_gameuser_id_for(message.from_user.id)
     gameuser = GameUser.get(gameuser_id)
@@ -87,7 +87,7 @@ async def gameuser_lastname(message: types.Message, state: FSMContext):
     content_types=types.message.ContentType.TEXT,
     state=NewGameUser.waiting_first_name)
 async def gameuser_firstname(message: types.Message, state: FSMContext):
-    logger.info('gameuser_firstname from: %r', message.from_user.id)
+    logger.info(f'gameuser_firstname from: {message.from_user.id}')
 
     gameuser_id = MarketBot().get_active_gameuser_id_for(message.from_user.id)
     gameuser = GameUser.get(gameuser_id)
@@ -103,7 +103,7 @@ async def gameuser_firstname(message: types.Message, state: FSMContext):
     content_types=types.message.ContentType.TEXT,
     state=NewGameUser.waiting_nickname)
 async def gameuser_nickname(message: types.Message, state: FSMContext):
-    logger.info('gameuser_nickname from: %r', message.from_user.id)
+    logger.info(f'gameuser_nickname from: {message.from_user.id}')
 
     gameuser_id = MarketBot().get_active_gameuser_id_for(message.from_user.id)
     gameuser = GameUser.get(gameuser_id)
@@ -125,13 +125,13 @@ async def gameuser_nickname(message: types.Message, state: FSMContext):
         game.add_gameuser_in_sheet(gameuser_id)
         await start_guide(message)
     else:
-        logger.info('wrong gameuser_nickname from: %r', message.from_user.id)
+        logger.info(f'wrong gameuser_nickname from: {message.from_user.id}')
         await message.answer(
             get_text_from('./tgbot/text_of_questions/nickname_wrong.txt'))
 
 
 async def start_guide(message: types.Message):
-    logger.info('start_guide from: %r', message.from_user.id)
+    logger.info(f'start_guide from: {message.from_user.id}')
     await message.answer(
             get_text_from('./tgbot/text_of_questions/about_1.txt'))
     time.sleep(3)

@@ -594,8 +594,10 @@ class Game(CacheMixin):
                 ticker=company.get_ticker()
             ):
                 company.change_price(new_price=0)
+                logger.info(f'Company { company.get_name() } was liquidated')
 
     def update_prices(self) -> None:
+        logger.info(f'Updating prices for game { self.game_id }')
         companyes_list = self.get_list_of_actual_companyes()
 
         for company in companyes_list:
@@ -642,6 +644,7 @@ class Game(CacheMixin):
                 date_entry=self.get_today(),
                 price=company.get_price()
             )
+        logger.info(f'Updated prices for game { self.game_id }')
         return
     
     def give_extra_cash(self) -> None:
@@ -657,6 +660,7 @@ class Game(CacheMixin):
                 )
             self.game_data.change_extra_cash(0)
             self.get_game_sheet().change_extra_cash(0)
+            logger.info(f'Extra cash { extra_cash } was given to gameres { self.game_id }')
 
     def update_gs_trading_volume(self) -> None:
         companyes_list = self.get_list_of_actual_companyes()
@@ -684,6 +688,7 @@ class Game(CacheMixin):
                 sold=number_of_shares_sold,
                 bought=number_of_shares_bought
             )
+        logger.info(f'Trading volume for game { self.game_id } was updated')
         return
 
     def update_gs_company_prices(self) -> None:
@@ -695,6 +700,7 @@ class Game(CacheMixin):
                 ticker=company.get_ticker(),
                 price=company.get_price()
             )
+        logger.info(f'Prices for game { self.game_id } was updated')
         return
 
     def get_list_of_gameusers(self) -> list:
@@ -710,6 +716,7 @@ class Game(CacheMixin):
                 nickname=gameuser.get_nickname(),
                 size=gameuser.get_portfolio_size()
             )
+        logger.info(f'Portfolios for game { self.game_id } was updated')
 
     def get_FAQ(self) -> list:
         return self.get_game_sheet().get_FAQ()

@@ -27,16 +27,14 @@ class SuperAdminState(StatesGroup):
 
 
 async def superadmin_command_from_real_admin(message: types.Message):
-    logger.info(
-        'superadmin_command_from_real_admin from: %r',
-        message.from_user.id)
+    logger.info(f'superadmin_command_from_real_admin from: {message.from_user.id}')
     await message.answer(
         get_text_from('./tgbot/text_of_questions/admin.txt'))
 
 
 @dp.message_handler(commands=['superadmin', 'sa'], state="*")
 async def superadmin_command(message: types.Message):
-    logger.info('superadmin_command from: %r', message.from_user.id)
+    logger.info(f'superadmin_command from: {message.from_user.id}')
     if message.from_user.id in MarketBot().get_superadmin_tg_ids():
         await superadmin_command_from_real_admin(message)
     else:
@@ -53,14 +51,14 @@ async def superadmin_command(message: types.Message):
     content_types=types.message.ContentType.TEXT,
     state=SuperAdminState.waiting_for_pass)
 async def check_superadmin_pass(message: types.Message, state: FSMContext):
-    logger.info('check_superadmin_pass from: %r', message.from_user.id)
+    logger.info(f'check_superadmin_pass from: {message.from_user.id}')
     if message.text == SUPERADMIN_PASS:
         await message.answer("Верный пароль")
         MarketBot().add_superadmin(message.from_user.id)
         await superadmin_command_from_real_admin(message)
         await state.finish()
     else:
-        logger.warning('wrong_admin_pass from: %r', message.from_user.id)
+        logger.warning(f'wrong_admin_pass from: {message.from_user.id}')
         await message.answer("Неверный пароль. Попробуйте еще раз:")
 
 
@@ -71,7 +69,7 @@ class NewGameState(StatesGroup):
 
 @dp.message_handler(commands=['new_game'], state="*")
 async def new_game_command(message: types.Message, state: FSMContext):
-    logger.info('new_game_command from: %r', message.from_user.id)
+    logger.info(f'new_game_command from: {message.from_user.id}')
     if message.from_user.id not in MarketBot().get_superadmin_tg_ids():
         return
     await NewGameState.waiting_gs_link.set()
@@ -89,8 +87,7 @@ async def new_game_command(message: types.Message, state: FSMContext):
     content_types=types.message.ContentType.TEXT,
     state=NewGameState.waiting_gs_link)
 async def new_gs_link(message: types.Message, state: FSMContext):
-    logger.info('new_gs_link from: %r', message.from_user.id)
-
+    logger.info(f'new_gs_link from: {message.from_user.id}')
     if Game.is_url_correct(gs_url=message.text):
         state_data = await state.get_data()
         game = Game.get(state_data['game_id'])
@@ -150,7 +147,7 @@ async def make_text_for_game(game: Game):
 
 @dp.message_handler(commands=['all_games'], state="*")
 async def all_game_command(message: types.Message, state: FSMContext):
-    logger.info('all_game_command from: %r', message.from_user.id)
+    logger.info(f'all_games_command from: {message.from_user.id}')
     if message.from_user.id not in MarketBot().get_superadmin_tg_ids():
         return
     await message.answer('Все игры:')
@@ -164,11 +161,11 @@ async def all_game_command(message: types.Message, state: FSMContext):
 
 
 async def delete_game(message: types.Message, game_id: int):
-    logger.info('delete_game from: %r', message.from_user.id)
+    logger.info(f'delete_game from: {message.from_user.id}')
 
 
 async def stop_registration_game(message: types.Message, game_id: int):
-    logger.info('stop_registration_game from: %r', message.from_user.id)
+    logger.info(f'stop_registration_game from: {message.from_user.id}')
     game = Game.get(game_id)
     game.close_registration()
 
@@ -184,7 +181,7 @@ async def stop_registration_game(message: types.Message, game_id: int):
 
 
 async def open_registration_game(message: types.Message, game_id: int):
-    logger.info('open_registration_game from: %r', message.from_user.id)
+    logger.info(f'open_registration_game from: {message.from_user.id}')
     game = Game.get(game_id)
     game.open_registration()
 
@@ -200,7 +197,7 @@ async def open_registration_game(message: types.Message, game_id: int):
 
 
 async def stop_market_game(message: types.Message, game_id: int):
-    logger.info('stop_market_game from: %r', message.from_user.id)
+    logger.info(f'stop_market_game from: {message.from_user.id}')
     game = Game.get(game_id)
     game.close_market()
 
@@ -216,7 +213,7 @@ async def stop_market_game(message: types.Message, game_id: int):
 
 
 async def stop_market_and_job_after_game(message: types.Message, game_id: int):
-    logger.info('stop_market_and_job_after_game from: %r', message.from_user.id)
+    logger.info(f'stop_market_and_job_after_game from: {message.from_user.id}')
     answer = await message.answer('Расчет запущен...')
     game = Game.get(game_id)
     try:
@@ -239,7 +236,7 @@ async def stop_market_and_job_after_game(message: types.Message, game_id: int):
 
 
 async def open_market_game(message: types.Message, game_id: int):
-    logger.info('open_market_game from: %r', message.from_user.id)
+    logger.info(f'open_market_game from: {message.from_user.id}')
     game = Game.get(game_id)
     game.open_market()
 
@@ -254,7 +251,7 @@ async def open_market_game(message: types.Message, game_id: int):
         pass
 
 async def update_base_game(message: types.Message, game_id: int):
-    logger.info('update_base_game from: %r', message.from_user.id)
+    logger.info(f'update_base_game from: {message.from_user.id}')
     answer = await message.answer('Начинаю обновление ...')
     game: Game = Game.get(game_id)
     result_loading = game.load_base_value()
@@ -285,7 +282,7 @@ async def superadmin_buttons(
         query: types.CallbackQuery,
         callback_data: Dict[str, str],
         state: FSMContext):
-    logger.info('Got this callback data: %r', callback_data)
+    logger.info(f'Got this callback data: {callback_data}')
     if query.from_user.id not in MarketBot().get_superadmin_tg_ids():
         return
 
@@ -298,13 +295,13 @@ async def superadmin_buttons(
 #  -------------------------------------------------------- УПРАВЛЕНИЕ ЮЗЕРАМИ
 @dp.message_handler(commands=['ban', 'justify'], state="*")
 async def ban_command(message: types.Message, state: FSMContext):
-    logger.info('ban_command from: %r', message.from_user.id)
+    logger.info(f'ban_command from: {message.from_user.id}')
     if message.from_user.id not in MarketBot().get_superadmin_tg_ids():
         return
 
     words_command: List[str] = message.text.split(' ')
     if len(words_command) > 2 or not words_command[-1].isdigit():
-        logger.info('bad command: %r', message.from_user.id)
+        logger.info(f'bad command: {message.from_user.id}')
         await message.reply('не верная команда')
         return
 
@@ -331,7 +328,7 @@ mailing_cb = CallbackData('mailing_cb', 'target')
 
 @dp.message_handler(commands=['mailing'], state='*')
 async def letter_for_mailing_handler(message: types.Message):
-    logger.info(f'letter_for_mailing_handler from: { message.from_user.id}',)
+    logger.info(f'letter_for_mailing_handler from: {message.from_user.id}',)
     if message.from_user.id not in MarketBot().get_superadmin_tg_ids():
         return
     text = 'Напишите сообщение. Потом можно будет выбрать кому его отправить.'

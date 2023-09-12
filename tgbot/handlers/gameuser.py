@@ -26,7 +26,7 @@ from tgbot.services.business_logic import Company, DealIllegal, Game, MarketBot,
 
 
 async def send_market(message: types.Message, gameuser: GameUser):
-    logger.info('send_market to: %r', message.from_user.id)
+    logger.info(f'send_market to: {message.from_user.id}')
     game = gameuser.get_game()
     is_market_open = game.is_market_open_now()
 
@@ -68,7 +68,7 @@ async def send_market(message: types.Message, gameuser: GameUser):
 
 
 async def send_gameuser_partfolio(message: types.Message, gameuser: GameUser):
-    logger.info('send_gameuser_partfolio to: %r', message.from_user.id)
+    logger.info(f'send_gameuser_partfolio to: {message.from_user.id}')
     size = gameuser.get_portfolio_size()
 
     text = (
@@ -94,7 +94,7 @@ async def send_gameuser_partfolio(message: types.Message, gameuser: GameUser):
 
 
 async def send_gameuser_chart_link(message: types.Message, gameuser: GameUser):
-    logger.info('send_gameuser_chart_link to: %r', message.from_user.id)
+    logger.info(f'send_gameuser_chart_link to: {message.from_user.id}')
     gameuser_id = MarketBot().get_active_gameuser_id_for(message.from_user.id)
     gameuser = GameUser.get(gameuser_id)
     game = gameuser.get_game()
@@ -115,7 +115,7 @@ async def send_gameuser_chart_link(message: types.Message, gameuser: GameUser):
 
 
 async def send_gameuser_help(message: types.Message, gameuser: GameUser):
-    logger.info('send_gameuser_help to: %r', message.from_user.id)
+    logger.info(f'send_gameuser_help to: {message.from_user.id}')
     gameuser_id = MarketBot().get_active_gameuser_id_for(message.from_user.id)
     gameuser = GameUser.get(gameuser_id)
     game = gameuser.get_game()
@@ -142,7 +142,7 @@ async def send_gameuser_help(message: types.Message, gameuser: GameUser):
 
 
 async def send_gameuser_keyboard(message: types.Message, gameuser: GameUser):
-    logger.info('send_gameuser_keyboard to: %r', message.from_user.id)
+    logger.info(f'send_gameuser_keyboard to: {message.from_user.id}')
     await message.answer(
         text='Клавиатура обновлена',
         reply_markup=gameuser_keyboard
@@ -165,13 +165,13 @@ async def gameuser_keyboard_push(message: types.Message, state: FSMContext):
     """
     Получаем нажатие кнопки из клавиатуры игрока
     """
-    logger.info('push gameuser_keyboard from: %r', message.from_user.id)
+    logger.info(f'push gameuser_keyboard from: {message.from_user.id}')
     
     gameuser_id = MarketBot().get_active_gameuser_id_for(message.from_user.id)
     if gameuser_id:
         gameuser = GameUser.get(gameuser_id)
     else:
-        logger.error('push button from unkown user: %r', message.from_user.id)
+        logger.error(f'push button from unkown user: {message.from_user.id}')
         return
 
     await gameuser_buttons_dict[message.text](
@@ -191,7 +191,7 @@ async def callback_market_deal(
         query: types.CallbackQuery,
         callback_data: Dict[str, str],
         state: FSMContext):
-    logger.info('Got this callback data: %r', callback_data)
+    logger.info(f'Got this callback data: {callback_data}')
     
     gameuser_id = MarketBot().get_active_gameuser_id_for(query.from_user.id)
     gameuser = GameUser.get(gameuser_id)
@@ -254,7 +254,7 @@ async def callback_cancel_deal(
         query: types.CallbackQuery,
         callback_data: Dict[str, str],
         state: FSMContext):
-    logger.info('Got this callback data: %r', callback_data)
+    logger.info(f'Got this callback data: {callback_data}')
     
     if callback_data['answer'] == cancel_button:
         await pashalka(query.message)
@@ -266,7 +266,7 @@ async def callback_cancel_deal(
     content_types=types.message.ContentType.TEXT,
     state=MarketDeal.waiting_number_shares)
 async def number_of_shares(message: types.Message, state: FSMContext):
-    logger.info('number_of_shares from: %r', message.from_user.id)
+    logger.info(f'number_of_shares from: {message.from_user.id}')
 
     try:
         number = int(message.text)
