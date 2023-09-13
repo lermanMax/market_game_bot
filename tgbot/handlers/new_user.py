@@ -12,6 +12,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from tgbot.loader import dp
 from tgbot.keyboards.gameuser import gameuser_keyboard
 from tgbot.utils.file_manager import get_text_from
+from tgbot.filters.content import TextNotComand
 from tgbot.services.business_logic import Company, DealIllegal, Game, MarketBot, \
     NotEnoughMoney, SuperAdmin, GameUser, TgUser
 
@@ -34,7 +35,7 @@ async def new_gameuser_command(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(
-    content_types=types.message.ContentType.TEXT,
+    TextNotComand(),
     state=NewGameUser.waiting_game_key)
 async def gameuser_gamekey(message: types.Message, state: FSMContext):
     logger.info(f'gameuser_gamekey from: {message.from_user.id}')
@@ -68,7 +69,7 @@ async def gameuser_gamekey(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(
-    content_types=types.message.ContentType.TEXT,
+    TextNotComand(),
     state=NewGameUser.waiting_last_name)
 async def gameuser_lastname(message: types.Message, state: FSMContext):
     logger.info(f'gameuser_lastname from: {message.from_user.id}')
@@ -84,7 +85,7 @@ async def gameuser_lastname(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(
-    content_types=types.message.ContentType.TEXT,
+    TextNotComand(),
     state=NewGameUser.waiting_first_name)
 async def gameuser_firstname(message: types.Message, state: FSMContext):
     logger.info(f'gameuser_firstname from: {message.from_user.id}')
@@ -100,7 +101,7 @@ async def gameuser_firstname(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(
-    content_types=types.message.ContentType.TEXT,
+    TextNotComand(),
     state=NewGameUser.waiting_nickname)
 async def gameuser_nickname(message: types.Message, state: FSMContext):
     logger.info(f'gameuser_nickname from: {message.from_user.id}')
