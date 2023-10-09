@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import time
 import logging
 from time import sleep
 from loguru import logger
@@ -78,7 +79,8 @@ class GameSheet():
                 sheet = client.open_by_url(self.gs_link)
                 did_conect = True
             except Exception as e:
-                logger.error(f'connection error: {e}')
+                logger.error(f'connection error: {e}. sleep 2 seconds')
+                time.sleep(2)
                 pass
 
         return sheet

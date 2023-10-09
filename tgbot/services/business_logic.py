@@ -444,6 +444,7 @@ class Game(CacheMixin):
         )
 
     def load_base_value(self) -> bool:
+        self.clear_cache()
         try:
             base_value_dict = self.get_game_sheet().get_base_value()
             logger.info(f'Loaded base value: {base_value_dict}')
@@ -451,7 +452,7 @@ class Game(CacheMixin):
             self.game_data.fill_in_game_data(base_value_dict)
             self.game_data = GameData(self.game_id)  # update data after changes
             logger.info(f'values for game {self.game_id} was loaded')
-            return True
+            return True 
         except Exception as e:
             logger.error(f'values_not_correct game {self.game_id}: { e }')
             return False
