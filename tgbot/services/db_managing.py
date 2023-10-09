@@ -75,7 +75,6 @@ class MarketBotData:
                                 WHERE game_user.tg_id = %s
                                 AND game_user.is_active = TRUE;'''
             cursor.execute(select_script, (tg_id,))
-            active_gameuser, = cursor.fetchone()
             fetchone_return = cursor.fetchone()
             if fetchone_return:
                 active_gameuser, = fetchone_return
